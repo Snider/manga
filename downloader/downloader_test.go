@@ -56,7 +56,8 @@ func zipOf(t *testing.T, files map[string]string) ([]byte, string) {
 }
 
 func TestInstallTool(t *testing.T) {
-	dir := t.TempDir()
+	dataDir := t.TempDir()
+	dir := filepath.Join(dataDir, "tools") // where FetchTool puts it
 	body, sha := zipOf(t, map[string]string{"mangadex-dl/mangadex-dl.exe": "MZ", "mangadex-dl/_internal/x.pyd": "x"})
 	exe, err := installTool(body, sha, dir)
 	if err != nil {
@@ -65,7 +66,7 @@ func TestInstallTool(t *testing.T) {
 	if b, _ := os.ReadFile(exe); string(b) != "MZ" || exe != filepath.Join(dir, "mangadex-dl", "mangadex-dl.exe") {
 		t.Errorf("installed %s", exe)
 	}
-	if got := FindTool("", filepath.Dir(dir)); runtime.GOOS == "windows" && got != exe {
+	if got := FindTool("", dataDir); runtime.GOOS == "windows" && got != exe {
 		t.Errorf("FindTool found %q", got)
 	}
 	// And again over the top (an upgrade): still fine.
