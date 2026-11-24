@@ -150,3 +150,70 @@ func TestLess(t *testing.T) {
 		t.Errorf("got  %s\nwant %s", strings.Join(got, ","), want)
 	}
 }
+
+// Info is manga.json; a series without one (copied in by hand) has none.
+func TestInfo(t *testing.T) {
+	l := shelf(t)
+	info, err := l.Info("Uso-douri no Kottouya")
+	if err != nil || info.MangaDex != "cbe84ea7-2992-4db0-b4ef-d042124f48c8" {
+		t.Errorf("Info: %+v %v", info, err)
+	}
+	if _, err := l.Info("Old Favourite"); err == nil {
+		t.Error("a series without manga.json has Info")
+	}
+	if _, err := l.Info("../x"); err == nil {
+		t.Error("Info outside the bookcase")
+	}
+	os.WriteFile(filepath.Join(l.Dir, "Old Favourite", "manga.json"), []byte(`{"title":""}`), 0o644)
+	if _, err := l.Info("Old Favourite"); err == nil {
+		t.Error("a manga.json with no title should be an error")
+	}
+}
+
+// Path and BookPath are what Explorer and her PDF reader get: real files in
+// the bookcase, nothing that walks out of it.
+func TestPaths(t *testing.T) {
+	l := shelf(t)
+	if p, err := l.Path("Old Favourite"); err != nil || p != filepath.Join(l.Dir, "Old Favourite") {
+		t.Errorf("Path: %q %v", p, err)
+	}
+	if p, err := l.BookPath("Old Favourite", "Book 1.pdf"); err != nil || p != filepath.Join(l.Dir, "Old Favourite", "Book 1.pdf") {
+		t.Errorf("BookPath: %q %v", p, err)
+	}
+	for _, bad := range [][2]string{{"..", "x"}, {"Old Favourite", "../../etc"}, {"Old Favourite", "missing.pdf"}, {"", "x"}} {
+		if _, err := l.BookPath(bad[0], bad[1]); err == nil {
+			t.Errorf("BookPath(%q, %q) should fail", bad[0], bad[1])
+		}
+	}
+	if _, err := l.Path("a/b"); err == nil {
+		t.Error("Path with a slash")
+	}
+}
+
+// Every image type the reader shows comes back with its content type; other
+// files in a .cbz aren't pages.
+func TestImageType(t *testing.T) {
+	for name, want := range map[string]string{"a.JPG": "image/jpeg", "b.jpeg": "image/jpeg", "c.png": "image/png", "d.webp": "image/webp", "e.gif": "image/gif", "f.avif": "image/avif", "ComicInfo.xml": "", "g": ""} {
+		if got := imageType(name); got != want {
+			t.Errorf("imageType(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
+// A page that isn't there, a book that isn't a .cbz, and a .cbz that isn't a zip.
+func TestPageRefusals(t *testing.T) {
+	l := shelf(t)
+	if _, _, err := l.Page("Uso-douri no Kottouya", "Vol. 2.cbz", 5); err == nil {
+		t.Error("page past the end")
+	}
+	if _, _, err := l.Page("Uso-douri no Kottouya", "Vol. 2.cbz", -1); err == nil {
+		t.Error("page -1")
+	}
+	if _, err := l.Pages("Old Favourite", "Book 1.pdf"); err == nil {
+		t.Error("a PDF opened in the reader")
+	}
+	os.WriteFile(filepath.Join(l.Dir, "Old Favourite", "Broken.cbz"), []byte("not a zip"), 0o644)
+	if _, err := l.Pages("Old Favourite", "Broken.cbz"); err == nil {
+		t.Error("a broken .cbz opened")
+	}
+}

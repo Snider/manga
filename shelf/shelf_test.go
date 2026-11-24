@@ -5,6 +5,7 @@ package shelf
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -107,5 +108,34 @@ func TestMovedFrom(t *testing.T) {
 	os.MkdirAll(old, 0o755) // both exist: the new one wins, the old is left alone
 	if got := movedFrom(old, dir); got != dir {
 		t.Errorf("both: got %q", got)
+	}
+}
+
+// Note and Noted keep Pinku's own small facts (the update check's answer).
+func TestNote(t *testing.T) {
+	s, _ := open(t)
+	if s.Noted("latest") != "" {
+		t.Error("a fact before it was noted")
+	}
+	s.Note("latest", "v0.5.0")
+	if got := s.Noted("latest"); got != "v0.5.0" {
+		t.Errorf("Noted = %q", got)
+	}
+}
+
+// The store and bookcase default to her own folders, not somewhere shared.
+func TestDefaultPaths(t *testing.T) {
+	// Dir moves a real MangaShelf folder over: point every OS's user folders
+	// at a temp one first, so the test can't touch hers (or yours).
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("APPDATA", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", home)
+	if p := DefaultPath(); !strings.HasPrefix(p, home) || filepath.Base(p) != "shelf.db" || filepath.Base(filepath.Dir(p)) != "Pinku" {
+		t.Errorf("DefaultPath = %q", p)
+	}
+	if l := DefaultLibrary(); !strings.HasPrefix(l, home) || filepath.Base(l) != "Manga" {
+		t.Errorf("DefaultLibrary = %q", l)
 	}
 }

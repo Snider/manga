@@ -42,7 +42,7 @@ func main() {
 		return
 	}
 
-	sh, c := open()
+	sh, c := open(shelf.DefaultPath())
 	defer sh.Close()
 	page := core.Sub(frontend, "frontend").Value.(core.FS) // the embedded folder: always there
 	a := &app{
@@ -87,18 +87,19 @@ func main() {
 	}
 }
 
-// open is the shelf (settings, progress) plus the Core with the download
+// open is the shelf at path (settings, progress; shelf.DefaultPath for real)
+// plus the Core with the download
 // queue in it. Both the window and the terminal commands start here.
-func open() (*shelf.Shelf, *core.Core) {
-	r := shelf.Open(shelf.DefaultPath())
+func open(path string) (*shelf.Shelf, *core.Core) {
+	r := shelf.Open(path)
 	if !r.OK {
-		fatal(core.Sprintf("can't open %s: %s", shelf.DefaultPath(), r.Error()))
+		fatal(core.Sprintf("can't open %s: %s", path, r.Error()))
 	}
 	sh := r.Value.(*shelf.Shelf)
 	c := core.New(
 		core.WithOption("name", "pinku"),
 		core.WithService(process.Register),
-		core.WithService(downloader.Register(downloader.Options{DataDir: shelf.Dir(), Settings: sh.Settings})),
+		core.WithService(downloader.Register(downloader.Options{DataDir: core.PathDir(path), Settings: sh.Settings})),
 		core.WithServiceLock(),
 	)
 	if r := c.ServiceStartup(c.Context(), nil); !r.OK {

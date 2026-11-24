@@ -103,26 +103,8 @@ func TestArgs(t *testing.T) {
 	}
 }
 
-// fakeTool is a stand-in mangadex-dl: logs like the real one (to stderr) and
-// writes a volume into --path. FAIL in the title makes it log an error instead.
-const fakeTool = `#!/bin/sh
-dir=""
-while [ $# -gt 0 ]; do [ "$1" = "--path" ] && dir="$2"; shift; done
-echo "[INFO] Checking url" >&2
-case "$dir" in *FAIL*) echo "[ERROR] Manga 'x' with en language has no chapters" >&2; exit 0;; esac
-echo "[INFO] Downloading [grp] Volume. 1 Chapter. 1 page 1" >&2
-echo "[INFO] Downloading [grp] Volume. 1 Chapter. 1 page 2" >&2
-echo "[INFO] Vol. 1 has finished download, converting chapters to .cbz file..." >&2
-printf 'cbz' > "$dir/Vol. 1.cbz"
-echo '[INFO] Download finished for manga "x"' >&2
-`
-
 func TestQueueRunsTheTool(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("the fake tool is a shell script")
-	}
-	tool := filepath.Join(t.TempDir(), "mangadex-dl")
-	os.WriteFile(tool, []byte(fakeTool), 0o755)
+	tool := fakeTool(t)
 	lib := filepath.Join(t.TempDir(), "Manga")
 	set := shelf.Settings{Library: lib, Language: "en", Format: "cbz-volume", Tool: tool}
 	c := core.New(

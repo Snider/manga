@@ -117,3 +117,24 @@ func TestCoverOnlyFetchesCovers(t *testing.T) {
 		}
 	}
 }
+
+// Get by id or link; MangaDex's refusals and outages come back as errors she
+// can read, not a crash or an empty result.
+func TestGet(t *testing.T) {
+	c, req := fake(t, "manga.json", 200) // one entity: the first of yotsuba.json, as /manga/{id} answers
+	if _, err := c.Get(context.Background(), "not a link"); err == nil {
+		t.Error("Get without an id")
+	}
+	if _, err := c.Get(context.Background(), "https://mangadex.org/title/58be6aa6-06cb-4ca5-bd20-f1392ce451fb/yotsuba"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(req.URL.Path, "/manga/58be6aa6-06cb-4ca5-bd20-f1392ce451fb") {
+		t.Errorf("asked for %s", req.URL.Path)
+	}
+	for status, want := range map[int]string{404: "doesn't have", 429: "slow down", 500: "500"} {
+		c, _ := fake(t, "yotsuba.json", status)
+		if _, err := c.Get(context.Background(), "58be6aa6-06cb-4ca5-bd20-f1392ce451fb"); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%d: %v", status, err)
+		}
+	}
+}
