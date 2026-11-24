@@ -36,12 +36,14 @@ type Library struct {
 
 // Series is one folder on the shelf.
 type Series struct {
-	Folder   string `json:"folder"` // the folder's name, which is also its id here
-	Title    string `json:"title"`
-	MangaDex string `json:"mangadex,omitempty"` // the MangaDex id, if it was downloaded from there
-	HasCover bool   `json:"hasCover"`
-	Books    []Book `json:"books"`
-	Added    int64  `json:"added"` // unix seconds
+	Folder    string `json:"folder"` // the folder's name, which is also its id here
+	Title     string `json:"title"`
+	MangaDex  string `json:"mangadex,omitempty"` // the MangaDex id, if it was downloaded from there
+	Source    string `json:"source,omitempty"`   // "opds" if it came from one of her catalogues
+	Checkable bool   `json:"checkable"`          // can look for new chapters (MangaDex, or a catalogue series)
+	HasCover  bool   `json:"hasCover"`
+	Books     []Book `json:"books"`
+	Added     int64  `json:"added"` // unix seconds
 }
 
 // Book is one file in a series.
@@ -95,7 +97,7 @@ func (l Library) Scan() ([]Series, error) {
 			continue
 		}
 		s, err := series(m, e.Name())
-		if err != nil || (len(s.Books) == 0 && s.MangaDex == "") {
+		if err != nil || (len(s.Books) == 0 && !s.Checkable) {
 			continue // not a series (or one still being started)
 		}
 		out = append(out, s)
@@ -126,6 +128,8 @@ func series(m *local.Medium, folder string) (Series, error) {
 	}
 	if info, err := readInfo(m, folder); err == nil {
 		s.MangaDex, s.Title, s.Added = info.MangaDex, info.Title, info.Added.Unix()
+		s.Source = info.Source
+		s.Checkable = info.MangaDex != "" || (info.Source == "opds" && info.Feed != "")
 	}
 	s.HasCover = m.IsFile(folder + "/cover.jpg")
 	entries, err := m.List(folder)

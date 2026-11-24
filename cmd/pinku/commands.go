@@ -86,7 +86,7 @@ func (tm terminal) update(folder string) core.Result {
 		series, err := library.Library{Dir: sh.Settings().Library}.Scan()
 		var jobs []downloader.Job
 		for _, s := range series {
-			if s.MangaDex != "" {
+			if s.Checkable {
 				if j, err := d.Update(s.Folder); err == nil {
 					jobs = append(jobs, j)
 				}

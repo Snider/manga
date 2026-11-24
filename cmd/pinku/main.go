@@ -23,6 +23,7 @@ import (
 
 	"manga/downloader"
 	"manga/mangadex"
+	"manga/opds"
 	"manga/shelf"
 )
 
@@ -68,7 +69,11 @@ func openShelf(path string) (*shelf.Shelf, *core.Core, error) {
 	c := core.New(
 		core.WithOption("name", "pinku"),
 		core.WithService(process.Register),
-		core.WithService(downloader.Register(downloader.Options{DataDir: core.PathDir(path), Settings: sh.Settings})),
+		core.WithService(downloader.Register(downloader.Options{DataDir: core.PathDir(path), Settings: sh.Settings,
+			Catalogue: func(id string) (opds.Catalogue, bool) {
+				src, ok := sh.SourceByID(id)
+				return catalogueOf(src), ok
+			}})),
 		core.WithServiceLock(),
 	)
 	if r := c.ServiceStartup(c.Context(), nil); !r.OK {

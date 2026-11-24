@@ -55,7 +55,8 @@
 			"open_folder": "Open folder",
 			"done": "✓ read",
 			"page_of": "page {{.Page}} of {{.Pages}}",
-			"checking": "Checking {{.Title}} for new chapters…"
+			"checking": "Checking {{.Title}} for new chapters…",
+			"from_source": "from a catalogue"
 		},
 		"reader": {
 			"back": "← Shelf",
@@ -78,7 +79,11 @@
 			"owned": "on your shelf",
 			"in_lang": "in your language",
 			"not_in_lang": "not in your language",
-			"vol": "vol. {{.N}}"
+			"vol": "vol. {{.N}}",
+			"from": "From {{.Source}}",
+			"source_error": "{{.Source}} didn't answer: {{.Error}}",
+			"none_here": "Nothing called that here.",
+			"note_more": "Searches {{.MangaDex}} and your catalogues. Pick one and it goes on your shelf."
 		},
 		"status": {
 			"ongoing": "ongoing",
@@ -136,6 +141,19 @@
 			"id": "Indonesian",
 			"vi": "Vietnamese",
 			"ja": "Japanese (raw)"
+		},
+		"sources": {
+			"title": "Other places to find manga",
+			"hint": "Add an OPDS catalogue: your own Komga, Kavita or Calibre-web, or a shop that offers one. Its books show up when you search.",
+			"url": "Catalogue link",
+			"name": "Name",
+			"user": "Username (if it asks)",
+			"password": "Password",
+			"add": "Add",
+			"remove": "Remove",
+			"works": "It works.",
+			"problem": "Saved, but: {{.Error}}",
+			"none": "None yet."
 		}
 	}
 }

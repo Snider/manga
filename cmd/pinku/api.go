@@ -217,7 +217,7 @@ func (a *app) handler() core.Handler {
 		series, _ := a.lib().Scan()
 		jobs := []downloader.Job{}
 		for _, s := range series {
-			if s.MangaDex != "" {
+			if s.Checkable {
 				if job, err := a.down.Update(s.Folder); err == nil {
 					jobs = append(jobs, job)
 				}
@@ -290,6 +290,7 @@ func (a *app) handler() core.Handler {
 		}
 		send(w, map[string]string{"folder": dir}) // "" = she cancelled
 	})
+	a.sourceRoutes(mux)
 	mux.Handle("/", a.assets)
 	return mux
 }

@@ -23,6 +23,7 @@ import (
 	"manga/downloader"
 	"manga/library"
 	"manga/mangadex"
+	"manga/opds"
 	"manga/shelf"
 )
 
@@ -42,7 +43,8 @@ func testApp(t *testing.T, libDir string) (*app, *httptest.Server) {
 	}
 	c := core.New(
 		core.WithService(process.Register),
-		core.WithService(downloader.Register(downloader.Options{DataDir: t.TempDir(), Settings: sh.Settings})),
+		core.WithService(downloader.Register(downloader.Options{DataDir: t.TempDir(), Settings: sh.Settings,
+			Catalogue: func(id string) (opds.Catalogue, bool) { src, ok := sh.SourceByID(id); return catalogueOf(src), ok }})),
 		core.WithServiceLock(),
 	)
 	if r := c.ServiceStartup(core.Background(), nil); !r.OK {

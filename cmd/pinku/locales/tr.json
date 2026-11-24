@@ -55,7 +55,8 @@
 			"open_folder": "Klasörü aç",
 			"done": "✓ okundu",
 			"page_of": "sayfa {{.Page}} / {{.Pages}}",
-			"checking": "{{.Title}} yeni bölümler için kontrol ediliyor…"
+			"checking": "{{.Title}} yeni bölümler için kontrol ediliyor…",
+			"from_source": "bir katalogdan"
 		},
 		"reader": {
 			"back": "← Raf",
@@ -78,7 +79,11 @@
 			"owned": "rafında",
 			"in_lang": "senin dilinde",
 			"not_in_lang": "senin dilinde değil",
-			"vol": "{{.N}}. cilt"
+			"vol": "{{.N}}. cilt",
+			"from": "{{.Source}} kaynağından",
+			"source_error": "{{.Source}} cevap vermedi: {{.Error}}",
+			"none_here": "Burada bu adla bir şey yok.",
+			"note_more": "{{.MangaDex}} ve kataloglarında arar. Birini seçersen rafına konur."
 		},
 		"status": {
 			"ongoing": "devam ediyor",
@@ -136,6 +141,19 @@
 			"id": "Endonezce",
 			"vi": "Vietnamca",
 			"ja": "Japonca (ham)"
+		},
+		"sources": {
+			"title": "Manga bulmak için başka yerler",
+			"hint": "Bir OPDS kataloğu ekle: kendi Komga, Kavita ya da Calibre-web sunucun, veya bunu sunan bir mağaza. Kitapları aradığında çıkar.",
+			"url": "Katalog bağlantısı",
+			"name": "Ad",
+			"user": "Kullanıcı adı (isterse)",
+			"password": "Şifre",
+			"add": "Ekle",
+			"remove": "Kaldır",
+			"works": "Çalışıyor.",
+			"problem": "Kaydedildi, ama: {{.Error}}",
+			"none": "Henüz yok."
 		}
 	}
 }

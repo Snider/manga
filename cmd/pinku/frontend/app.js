@@ -255,8 +255,8 @@ function openSeries(folder) {
   current = s;
   $("d-cover").src = s.hasCover ? "/api/cover/" + enc(s.folder) : "";
   $("d-title").textContent = s.title;
-  $("d-meta").textContent = tn("ui.series.books", s.books.length) + " · " + t("ui.series.read_count", { N: s.read }) + (s.mangadex ? " · " + t("ui.series.from_dex") : "");
-  $("d-update").hidden = !s.mangadex;
+  $("d-meta").textContent = tn("ui.series.books", s.books.length) + " · " + t("ui.series.read_count", { N: s.read }) + (s.mangadex ? " · " + t("ui.series.from_dex") : s.source === "opds" ? " · " + t("ui.series.from_source") : "");
+  $("d-update").hidden = !s.checkable;
   const next = nextBook(s);
   $("d-continue").textContent = next && s.progress[next.file] ? t("ui.series.carry_on", { Book: next.name }) : next ? t("ui.series.read_book", { Book: next.name }) : t("ui.series.read");
   $("d-continue").disabled = !next;
@@ -381,9 +381,43 @@ $("search").addEventListener("submit", async (e) => {
   try {
     data = await api("search?q=" + enc(q));
   } catch (e) { box.replaceChildren(); return oops(e); }
-  if (!data.results.length) return box.replaceChildren(el("p", { class: "dim" }, t("ui.find.none")));
-  box.replaceChildren(...data.results.map((m) => result(m, data.owned[m.id], data.language)));
+  const found = data.results.map((m) => result(m, data.owned[m.id], data.language));
+  box.replaceChildren(...(found.length ? found : [el("p", { class: "dim" }, t("ui.find.none"))]));
+  // Her catalogues, searched alongside: each under its own name.
+  let elsewhere = [];
+  try { elsewhere = await api("sources/search?q=" + enc(q)); } catch {}
+  const extra = $("results-elsewhere");
+  extra.replaceChildren(...elsewhere.flatMap(({ source, results, error }) => [
+    el("h3", { class: "from" }, t("ui.find.from", { Source: source.name })),
+    error ? el("p", { class: "dim" }, t("ui.find.source_error", { Source: source.name, Error: error }))
+      : !results.length ? el("p", { class: "dim" }, t("ui.find.none_here"))
+      : el("div", { class: "results" }, results.map((e) => catalogueResult(source, e))),
+  ]));
 });
+
+// A series or book from one of her catalogues.
+function catalogueResult(source, e) {
+  const btn = el("button", { class: "primary go" }, t("ui.find.add"));
+  btn.onclick = async () => {
+    btn.disabled = true;
+    try {
+      await api("sources/" + enc(source.id) + "/add", e);
+      btn.textContent = t("ui.find.downloading");
+      toast(t("ui.find.on_its_way", { Title: e.title }));
+      watchJobs();
+    } catch (err) { btn.disabled = false; oops(err); }
+  };
+  return el("div", { class: "result" },
+    el("img", { src: e.cover || "", alt: "", loading: "lazy" }),
+    el("div", {},
+      el("h3", {}, e.title),
+      e.author ? el("p", { class: "alt dim" }, e.author) : null,
+      el("span", { class: "pill" }, source.name),
+      el("p", { class: "desc" }, e.summary || ""),
+      btn,
+    ),
+  );
+}
 
 function result(m, owned, lang) {
   const inLang = m.languages.includes(lang);
@@ -474,10 +508,40 @@ async function loadSettings() {
   $("s-format").replaceChildren(...Object.entries(d.formats).map(([v, label]) => el("option", { value: v, selected: v === s.format }, t("ui.settings.format_" + v, {}, label))));
   $("s-tool").value = s.tool;
   $("s-words").value = s.words || "";
+  loadSources();
   $("tool-status").textContent = d.tool
     ? t("ui.settings.using", { Path: d.tool })
     : d.canFetch ? t("ui.settings.not_fetched") : t("ui.settings.not_found");
 }
+
+// --- her catalogues (Settings) ---------------------------------------------
+async function loadSources() {
+  let list = [];
+  try { list = await api("sources"); } catch (e) { return oops(e); }
+  noteSources(list.length);
+  $("source-list").replaceChildren(...(list.length ? list.map((s) =>
+    el("li", {},
+      el("span", { class: "name" }, s.name),
+      el("span", { class: "url dim" }, s.url),
+      el("button", { class: "ghost", onclick: () => api("sources/" + enc(s.id) + "/remove", {}).then(loadSources).catch(oops) }, t("ui.sources.remove")),
+    )) : [el("li", { class: "dim" }, t("ui.sources.none"))]));
+}
+
+// The line under the search box says where it looks.
+function noteSources(n) {
+  $("find-note").dataset.i18n = n ? "ui.find.note_more" : "ui.find.note";
+  applyStrings();
+}
+
+$("source-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    const r = await api("sources", { name: $("src-name").value, url: $("src-url").value, user: $("src-user").value, password: $("src-password").value });
+    $("source-check").textContent = r.check ? t("ui.sources.problem", { Error: r.check }) : t("ui.sources.works");
+    $("source-form").reset();
+    loadSources();
+  } catch (err) { oops(err); }
+});
 
 $("pick").onclick = async () => {
   try {
@@ -502,6 +566,7 @@ $("settings-form").addEventListener("submit", async (e) => {
 
 // --- start -------------------------------------------------------------------
 loadStrings().then(() => {
+  api("sources").then((l) => noteSources(l.length)).catch(() => {});
   loadShelf();
   watchJobs();
   checkForUpdate();

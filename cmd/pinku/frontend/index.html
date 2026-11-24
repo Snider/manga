@@ -55,6 +55,7 @@
       </form>
       <p id="find-note" class="dim note" data-i18n="ui.find.note">Searches <b data-slot="MangaDex">MangaDex</b>. Pick one and it goes on your shelf, downloaded volume by volume.</p>
       <div id="results" class="results"></div>
+      <div id="results-elsewhere"></div>
     </section>
 
     <section id="jobs" class="tab">
@@ -103,6 +104,20 @@
         </details>
         <p><button class="primary" data-i18n="ui.settings.save">Save</button> <span id="saved" class="dim"></span></p>
       </form>
+      <section class="sources">
+        <h3 data-i18n="ui.sources.title">Other places to find manga</h3>
+        <p class="dim" data-i18n="ui.sources.hint">Add an OPDS catalogue: your own Komga, Kavita or Calibre-web, or a shop that offers one. Its books show up when you search.</p>
+        <ul id="source-list" class="source-list"></ul>
+        <form id="source-form" class="settings">
+          <label><span data-i18n="ui.sources.url">Catalogue link</span><input id="src-url" type="url" required placeholder="https://…/opds"></label>
+          <label><span data-i18n="ui.sources.name">Name</span><input id="src-name"></label>
+          <span class="row">
+            <label><span data-i18n="ui.sources.user">Username (if it asks)</span><input id="src-user" autocomplete="off"></label>
+            <label><span data-i18n="ui.sources.password">Password</span><input id="src-password" type="password" autocomplete="new-password"></label>
+          </span>
+          <p><button class="primary" data-i18n="ui.sources.add">Add</button> <span id="source-check" class="dim"></span></p>
+        </form>
+      </section>
       <p class="dim credits" data-i18n="ui.settings.credits">Downloads by <a href="https://github.com/mansuf/mangadex-downloader" data-ext data-slot="Tool">mangadex-dl</a> from <a href="https://mangadex.org" data-ext data-slot="MangaDex">MangaDex</a>, where volunteers scanlate. If you love a series, buy the official volumes.</p>
     </section>
   </main>

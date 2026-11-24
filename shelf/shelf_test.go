@@ -128,6 +128,7 @@ func TestDefaultPaths(t *testing.T) {
 	// Dir moves a real MangaShelf folder over: point every OS's user folders
 	// at a temp one first, so the test can't touch hers (or yours).
 	home := t.TempDir()
+	t.Setenv("PINKU_HOME", "") // this test is about the real defaults
 	t.Setenv("HOME", home)
 	t.Setenv("APPDATA", home)
 	t.Setenv("USERPROFILE", home)

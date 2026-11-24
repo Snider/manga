@@ -40,6 +40,7 @@ func TestPageKeysExist(t *testing.T) {
 	for _, l := range w.langs {
 		need["ui.lang."+l] = "Pinku's language list"
 	}
+	need["ui.find.note_more"] = "noteSources"
 	for f := range shelf.Formats {
 		need["ui.settings.format_"+f] = "file formats"
 	}
