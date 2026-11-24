@@ -14,8 +14,8 @@ github.com/coder/websocket v1.8.14 h1:9L0p0iKiNOibykf283eHkKUHHrpG7f65OE3BhhO7v9
 github.com/coder/websocket v1.8.14/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=
 github.com/dappcore/go v0.19.0 h1:2xhfsAs7Z5DMgAmhgzMbmZLp9nPuv3sVtYp9zNXKKWE=
 github.com/dappcore/go v0.19.0/go.mod h1:0wbxM1oMhcDWzFXP8iOuC90oW8/xt4mqJjElZ+cOVWI=
-github.com/dappcore/go-i18n/go v0.15.0 h1:VA3AvoKyWdBijZjScH/iUxtTO67Xn7FjHbHfHDDe+6w=
-github.com/dappcore/go-i18n/go v0.15.0/go.mod h1:qmEMZbGVothNi3kqzgaJntbgTyjJ0xBRxSpSSlpbMHE=
+github.com/dappcore/go-i18n/go v0.15.1 h1:QC7tJ0X241eOPB4V5zadPdyuyadIXwmO+42Fk9qVutg=
+github.com/dappcore/go-i18n/go v0.15.1/go.mod h1:qmEMZbGVothNi3kqzgaJntbgTyjJ0xBRxSpSSlpbMHE=
 github.com/dappcore/go-io/go v0.16.0 h1:nVv/kAyvl0bsTNMCAd978yhb0BAP5hUauIeZ1DVmHJg=
 github.com/dappcore/go-io/go v0.16.0/go.mod h1:JQ6glCamapU04cabaEdjqPwpj1EgNGA/j+5Y/nYA5QY=
 github.com/dappcore/go-log/go v0.14.0 h1:RMLAADMns39B9EnCFlCdu8hSViMhtzIbA7deFGkz7t0=
