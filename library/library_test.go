@@ -217,3 +217,33 @@ func TestPageRefusals(t *testing.T) {
 		t.Error("a broken .cbz opened")
 	}
 }
+
+// A series or cover that isn't there, a broken manga.json, and a bookcase
+// path that's a file: errors, never a crash or a wrong answer.
+func TestMissingAndBroken(t *testing.T) {
+	l := shelf(t)
+	if _, err := l.Series("Nobody"); err == nil {
+		t.Error("Series of a missing folder")
+	}
+	if _, err := l.Cover("Old Favourite"); err == nil {
+		t.Error("a cover that isn't there")
+	}
+	os.WriteFile(filepath.Join(l.Dir, "Old Favourite", "manga.json"), []byte("{broken"), 0o644)
+	if _, err := l.Info("Old Favourite"); err == nil {
+		t.Error("a broken manga.json read as Info")
+	}
+	if s, err := l.Series("Old Favourite"); err != nil || s.Title != "Old Favourite" {
+		t.Errorf("a broken manga.json should leave the folder's own name: %+v %v", s, err)
+	}
+	file := filepath.Join(t.TempDir(), "Manga")
+	os.WriteFile(file, []byte("x"), 0o644)
+	if _, err := (Library{Dir: file}).Scan(); err == nil {
+		t.Error("Scan of a bookcase that's a file")
+	}
+	if err := (Library{Dir: file}).WriteInfo("X", Info{Title: "X"}); err == nil {
+		t.Error("WriteInfo into a bookcase that's a file")
+	}
+	if err := l.WriteInfo("a/b", Info{Title: "X"}); err == nil {
+		t.Error("WriteInfo with a slash in the folder")
+	}
+}

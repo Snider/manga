@@ -57,10 +57,16 @@ func FetchTool(ctx core.Context, dataDir string, status func(string)) (string, e
 	if !CanFetch() {
 		return "", core.E("downloader.FetchTool", core.Sprintf("there's no mangadex-dl download for %s/%s: pip install mangadex-downloader", core.OS(), core.Arch()), nil)
 	}
+	return fetchTool(ctx, toolURL, toolSHA256, dataDir, status)
+}
+
+// fetchTool is FetchTool from any url, checked against sha: the pinned
+// release in Pinku, a local server in the tests.
+func fetchTool(ctx core.Context, url, sha, dataDir string, status func(string)) (string, error) {
 	status("Downloading mangadex-dl " + ToolVersion + " (about 30 MB, once)…")
 	ctx, cancel := core.WithTimeout(ctx, 15*core.Minute)
 	defer cancel()
-	req := core.NewHTTPRequestContext(ctx, "GET", toolURL, nil)
+	req := core.NewHTTPRequestContext(ctx, "GET", url, nil)
 	if !req.OK {
 		return "", req.Err()
 	}
@@ -77,7 +83,7 @@ func FetchTool(ctx core.Context, dataDir string, status func(string)) (string, e
 		return "", core.E("downloader.FetchTool", "couldn't download mangadex-dl", body.Err())
 	}
 	status("Checking and unpacking mangadex-dl…")
-	return installTool([]byte(body.Value.(string)), toolSHA256, core.PathJoin(dataDir, "tools"))
+	return installTool([]byte(body.Value.(string)), sha, core.PathJoin(dataDir, "tools"))
 }
 
 // installTool checks the zip against its checksum and unpacks it into dir

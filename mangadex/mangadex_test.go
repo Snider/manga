@@ -4,6 +4,7 @@ package mangadex
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -136,5 +137,61 @@ func TestGet(t *testing.T) {
 		if _, err := c.Get(context.Background(), "58be6aa6-06cb-4ca5-bd20-f1392ce451fb"); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%d: %v", status, err)
 		}
+	}
+}
+
+// Covers that MangaDex hasn't got, or can't send, are errors; a manga with
+// no cover has no cover URL.
+func TestCoverFailures(t *testing.T) {
+	c, _ := fake(t, "search.json", 404)
+	c.UploadsURL = c.BaseURL
+	if _, err := c.Cover(context.Background(), "cbe84ea7-2992-4db0-b4ef-d042124f48c8", "b899141b-3a87-4871-95f6-5fdfd93b68e0.jpg"); err == nil {
+		t.Error("a 404 cover")
+	}
+	c.UploadsURL = "http://127.0.0.1:1"
+	if _, err := c.Cover(context.Background(), "cbe84ea7-2992-4db0-b4ef-d042124f48c8", "b899141b-3a87-4871-95f6-5fdfd93b68e0.jpg"); err == nil {
+		t.Error("an unreachable cover")
+	}
+	if (Manga{}).CoverURL() != "" {
+		t.Error("a CoverURL without a cover")
+	}
+	if u := (Manga{ID: "x", CoverFile: "c.jpg"}).CoverURL(); u != "https://uploads.mangadex.org/covers/x/c.jpg.256.jpg" {
+		t.Errorf("CoverURL = %s", u)
+	}
+}
+
+// MangaDex unreachable: an error saying so. No language: MangaDex's order.
+func TestSearchUnreachableAndUnordered(t *testing.T) {
+	c := New()
+	c.BaseURL = "http://127.0.0.1:1"
+	if _, err := c.Search(context.Background(), "x", "en"); err == nil || !strings.Contains(err.Error(), "couldn't reach") {
+		t.Errorf("unreachable: %v", err)
+	}
+	c, _ = fake(t, "search.json", 200)
+	if got, err := c.Search(context.Background(), "uso", ""); err != nil || len(got) != 1 {
+		t.Errorf("no language: %v %v", got, err)
+	}
+}
+
+// Titles and descriptions: English if there is one (main or alternative),
+// else the first; the credits block MangaDex descriptions end with is cut;
+// empty lists come back empty, not null.
+func TestFlattenFallbacks(t *testing.T) {
+	var it item
+	json.Unmarshal([]byte(`{"id":"cbe84ea7-2992-4db0-b4ef-d042124f48c8","attributes":{
+		"title":{"ja-ro":"Uso-douri"},
+		"altTitles":[{"ja":"嘘通り"},{"en":"As Lies Go"}],
+		"description":{"fr":"Une boutique.\n---\n[Links](x)"}}}`), &it)
+	m := it.flatten()
+	if m.Title != "As Lies Go" || m.AltTitle != "Uso-douri" || m.Description != "Une boutique." {
+		t.Errorf("flatten: %+v", m)
+	}
+	if m.Tags == nil || m.Languages == nil || m.Authors == nil || m.Cover != "" {
+		t.Errorf("lists should be empty, not null: %+v", m)
+	}
+	var bare item // a fresh one: Unmarshal keeps fields the new answer doesn't mention
+	json.Unmarshal([]byte(`{"id":"x","attributes":{"title":{"ja-ro":"Only Romaji"}}}`), &bare)
+	if m := bare.flatten(); m.Title != "Only Romaji" || m.AltTitle != "" {
+		t.Errorf("no English anywhere: %+v", m)
 	}
 }

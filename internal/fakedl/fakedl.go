@@ -9,7 +9,8 @@
 //
 // It logs like the real tool, to stderr, and writes "Vol. 1.cbz" into
 // --path. In the folder name: FAIL logs the real tool's "no chapters" error
-// (exiting 0, as it does); SLOW takes ten seconds over it (to be stopped).
+// (exiting 0, as it does); SLOW takes ten seconds over it (to be stopped);
+// NOISY logs 400 page lines first.
 package fakedl
 
 import (
@@ -51,6 +52,11 @@ func play(args []string) int {
 	}
 	say := func(s string) { fmt.Fprintln(os.Stderr, s) }
 	say("[INFO] Checking url")
+	if strings.Contains(dir, "NOISY") {
+		for i := range 400 {
+			say(fmt.Sprintf("[INFO] Downloading [grp] Volume. 1 Chapter. 1 page %d", i+1))
+		}
+	}
 	if strings.Contains(dir, "FAIL") {
 		say("[ERROR] Manga 'x' with en language has no chapters")
 		return 0

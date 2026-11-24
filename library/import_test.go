@@ -107,3 +107,42 @@ func TestImportFilesAndFolders(t *testing.T) {
 		t.Errorf("temp files left: %v", leftovers)
 	}
 }
+
+// Imports that can't happen say why, and leave nothing half-done.
+func TestImportTrouble(t *testing.T) {
+	src := t.TempDir()
+	cbzWith(t, filepath.Join(src, "Berserk v01.cbz"), "")
+	os.Mkdir(filepath.Join(src, "Empty Folder"), 0o755)
+	os.WriteFile(filepath.Join(src, "Empty Folder", "notes.txt"), []byte("x"), 0o644)
+
+	// The bookcase "folder" is a file.
+	file := filepath.Join(t.TempDir(), "Manga")
+	os.WriteFile(file, []byte("x"), 0o644)
+	if got := (Library{Dir: file}).Import([]string{filepath.Join(src, "Berserk v01.cbz")}); len(got.Failed) != 1 || len(got.Added) != 0 {
+		t.Errorf("into a file: %+v", got)
+	}
+
+	// A folder with no books in it.
+	lib := Library{Dir: filepath.Join(t.TempDir(), "Manga")}
+	if got := lib.Import([]string{filepath.Join(src, "Empty Folder")}); len(got.Skipped) != 1 || !strings.Contains(got.Skipped[0], "no books") {
+		t.Errorf("empty folder: %+v", got)
+	}
+
+	// ComicInfo.xml that isn't XML: the file name decides.
+	bad := filepath.Join(src, "Vagabond v03.cbz")
+	f, _ := os.Create(bad)
+	z := zip.NewWriter(f)
+	w, _ := z.Create("ComicInfo.xml")
+	w.Write([]byte("<ComicInfo><Series>unclosed"))
+	z.Close()
+	f.Close()
+	if got := SeriesOf(bad); got != "Vagabond" {
+		t.Errorf("SeriesOf with broken ComicInfo = %q", got)
+	}
+	// A .cbz that isn't a zip at all: the name decides too.
+	notZip := filepath.Join(src, "Monster v01.cbz")
+	os.WriteFile(notZip, []byte("nope"), 0o644)
+	if got := SeriesOf(notZip); got != "Monster" {
+		t.Errorf("SeriesOf a broken .cbz = %q", got)
+	}
+}

@@ -3,9 +3,14 @@
 package main
 
 import (
+	"manga/library"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"manga/internal/fakedl"
 	"manga/mangadex"
@@ -86,5 +91,54 @@ func TestIsCommand(t *testing.T) {
 		if got := isCommand(c, strings.Fields(args)); got != want {
 			t.Errorf("isCommand(%q) = %v", args, got)
 		}
+	}
+}
+
+// MangaDex down, nothing found, a download that fails, and reading counts.
+func TestCommandsWhenThingsGoWrong(t *testing.T) {
+	tm, out, lib := testTerminal(t)
+	tm.dex.BaseURL = "http://127.0.0.1:1"
+	if runCommand(tm, "search", "uso") || runCommand(tm, "get", usoID) {
+		t.Error("MangaDex unreachable should fail the command")
+	}
+
+	// A series whose download fails (the fake tool fails folders called FAIL…).
+	(library.Library{Dir: lib}).WriteInfo("FAIL here", library.Info{MangaDex: usoID, Title: "FAIL here", Added: time.Now()})
+	out.Reset()
+	if runCommand(tm, "update", "FAIL here") || !strings.Contains(out.String(), "no chapters") {
+		t.Errorf("a failed download should fail the command and say why:\n%s", out)
+	}
+
+	// Reading progress shows in shelf.
+	(library.Library{Dir: lib}).WriteInfo("Read One", library.Info{MangaDex: usoID, Title: "Read One", Added: time.Now()})
+	os.WriteFile(filepath.Join(lib, "Read One", "Vol. 1.cbz"), []byte("x"), 0o644)
+	r := shelf.Open(tm.shelfPath)
+	sh := r.Value.(*shelf.Shelf)
+	sh.SetPage("Read One", "Vol. 1.cbz", 4, 5)
+	sh.Close()
+	out.Reset()
+	if !runCommand(tm, "shelf") || !strings.Contains(out.String(), "1 books, 1 read") {
+		t.Errorf("shelf:\n%s", out)
+	}
+
+	// No results.
+	none := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`{"data":[]}`)) }))
+	defer none.Close()
+	tm.dex.BaseURL = none.URL
+	out.Reset()
+	if !runCommand(tm, "search", "zzzz") || !strings.Contains(out.String(), "nothing on MangaDex") {
+		t.Errorf("no results:\n%s", out)
+	}
+
+	// A shelf path that can't be opened.
+	tm.shelfPath = filepath.Join(lib, "Read One", "Vol. 1.cbz", "shelf.db")
+	if runCommand(tm, "shelf") {
+		t.Error("shelf with an unopenable store")
+	}
+}
+
+func TestYear(t *testing.T) {
+	if year(0) != "" || year(2019) != ", 2019" {
+		t.Errorf("year: %q %q", year(0), year(2019))
 	}
 }

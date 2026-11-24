@@ -63,3 +63,34 @@ func TestCheckUpdate(t *testing.T) {
 		t.Fatalf("a dev build checked or nagged: %+v, %d calls", u, calls)
 	}
 }
+
+// GitHub erroring, answering nonsense, or listing nothing: no update shown,
+// no crash, and the failure still waits a day before asking again.
+func TestNewestReleaseFailures(t *testing.T) {
+	for name, answer := range map[string]func(http.ResponseWriter){
+		"server error": func(w http.ResponseWriter) { w.WriteHeader(500) },
+		"not JSON":     func(w http.ResponseWriter) { w.Write([]byte("<html>")) },
+		"no releases":  func(w http.ResponseWriter) { w.Write([]byte(`[]`)) },
+		"only drafts": func(w http.ResponseWriter) {
+			w.Write([]byte(`[{"tag_name":"v9.0.0","html_url":"https://github.com/x","draft":true}]`))
+		},
+		"not on GitHub": func(w http.ResponseWriter) {
+			w.Write([]byte(`[{"tag_name":"v9.0.0","html_url":"https://evil.example/v9"}]`))
+		},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { answer(w) }))
+		old := releasesURL
+		releasesURL = srv.URL
+		if tag, _, err := newestRelease(t.Context()); err == nil {
+			t.Errorf("%s: got %s, want an error", name, tag)
+		}
+		releasesURL = old
+		srv.Close()
+	}
+	old := releasesURL
+	releasesURL = "http://127.0.0.1:1"
+	defer func() { releasesURL = old }()
+	if _, _, err := newestRelease(t.Context()); err == nil {
+		t.Error("unreachable GitHub: no error")
+	}
+}

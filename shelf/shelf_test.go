@@ -139,3 +139,12 @@ func TestDefaultPaths(t *testing.T) {
 		t.Errorf("DefaultLibrary = %q", l)
 	}
 }
+
+// A store that can't be made (its folder is a file) is an error, not a panic.
+func TestOpenFails(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "not-a-folder")
+	os.WriteFile(file, []byte("x"), 0o644)
+	if r := Open(filepath.Join(file, "shelf.db")); r.OK {
+		t.Error("opened a store inside a file")
+	}
+}
