@@ -1,5 +1,9 @@
 {
 	"ui": {
+		"update": {
+			"available": "Pinku {{.Version}} çıktı · İndir",
+			"how": "İndirme sayfasını açar. Zip dosyasını aç ve yeni Pinku.exe'yi çalıştır: rafın ve kaldığın yerler aynen gelir."
+		},
 		"tab": {
 			"shelf": "Kitaplık",
 			"find": "Manga bul",

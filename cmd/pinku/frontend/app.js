@@ -504,4 +504,17 @@ $("settings-form").addEventListener("submit", async (e) => {
 loadStrings().then(() => {
   loadShelf();
   watchJobs();
+  checkForUpdate();
 });
+
+// A newer Pinku: a small button by the name, opening the release page.
+async function checkForUpdate() {
+  let u;
+  try { u = await api("version"); } catch { return; }
+  if (!u.newer) return;
+  const b = $("update");
+  b.textContent = t("ui.update.available", { Version: u.latest });
+  b.title = t("ui.update.how");
+  b.onclick = () => api("browse", { url: u.url }).catch(oops);
+  b.hidden = false;
+}

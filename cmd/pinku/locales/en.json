@@ -1,5 +1,9 @@
 {
 	"ui": {
+		"update": {
+			"available": "Pinku {{.Version}} is out · Get it",
+			"how": "Opens the download page. Unzip it and run the new Pinku.exe: your shelf and progress come along."
+		},
 		"tab": {
 			"shelf": "Bookcase",
 			"find": "Find manga",

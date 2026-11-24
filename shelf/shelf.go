@@ -186,3 +186,17 @@ func (s *Shelf) LastChecked(folder string) core.Time {
 	n, _ := core.ParseInt(v, 10, 64).Value.(int64)
 	return core.Unix(n, 0)
 }
+
+// Note remembers a small fact about Pinku itself (the update check's result).
+func (s *Shelf) Note(key, value string) core.Result {
+	return s.db.Set("app", key, value)
+}
+
+// Noted is a fact Note remembered ("" if none).
+func (s *Shelf) Noted(key string) string {
+	v, r := s.db.Get("app", key)
+	if !r.OK {
+		return ""
+	}
+	return v
+}

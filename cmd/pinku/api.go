@@ -237,6 +237,9 @@ func (a *app) handler() core.Handler {
 		a.down.Cancel(id)
 		w.WriteHeader(core.StatusNoContent)
 	})
+	mux.HandleFunc("GET /api/version", func(w core.ResponseWriter, r *core.Request) {
+		send(w, checkUpdate(r.Context(), a.shelf, core.Now()))
+	})
 	mux.HandleFunc("GET /api/strings", func(w core.ResponseWriter, r *core.Request) {
 		if a.words == nil {
 			send(w, map[string]any{"lang": "en", "auto": "en", "languages": []string{"en"}, "strings": map[string]string{}})

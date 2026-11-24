@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist/Pinku
-          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui" -o dist/Pinku/Pinku.exe ./cmd/pinku
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui -X main.version=${GITHUB_REF_NAME}" -o dist/Pinku/Pinku.exe ./cmd/pinku
           curl -fsSL "$MDL_URL" -o mdl.zip
           echo "$MDL_SHA256  mdl.zip" | sha256sum -c -
           unzip -q mdl.zip -d dist/Pinku
