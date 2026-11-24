@@ -20,8 +20,6 @@ import (
 
 	core "github.com/dappcore/go"
 	process "github.com/dappcore/go-process/go"
-	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"manga/downloader"
 	"manga/mangadex"
@@ -31,69 +29,40 @@ import (
 //go:embed frontend
 var frontend embed.FS
 
-func main() {
-	if len(core.Args()) > 1 && !core.IsFlag(core.Args()[1]) {
-		core.AttachParentConsole() // before anything prints: the command's output needs somewhere to go
+// runTerminal runs a command (pinku search frieren…) if args start with one,
+// borrowing the terminal's console first so the output shows. handled is
+// false for the window (no args, or window flags).
+func runTerminal(args []string, out core.Writer) (handled bool, r core.Result) {
+	if len(args) > 0 && !core.IsFlag(args[0]) {
+		core.AttachParentConsole() // before anything prints
+		out = core.Stdout()        // which may have just become the console
 	}
-	if c := commands(core.Stdout()); isCommand(c, core.Args()[1:]) {
-		if r := c.Cli().Run(core.Args()[1:]...); !r.OK {
-			fatal(r.Error())
-		}
-		return
+	c := commands(out)
+	if !isCommand(c, args) {
+		return false, core.Ok(nil)
 	}
+	return true, c.Cli().Run(args...)
+}
 
-	sh, c := open(shelf.DefaultPath())
-	defer sh.Close()
-	page := core.Sub(frontend, "frontend").Value.(core.FS) // the embedded folder: always there
-	a := &app{
+// newApp is everything the window serves except the window's own calls
+// (opening Explorer, the browser, its file dialogs: runWindow adds those).
+func newApp(sh *shelf.Shelf, c *core.Core) *app {
+	return &app{
 		shelf:  sh,
 		dex:    mangadex.New(),
 		down:   core.MustServiceFor[*downloader.Service](c, "downloader"),
-		assets: application.BundledAssetFileServer(page),
+		assets: core.HTTPFileServer(core.HTTPFS(core.Sub(frontend, "frontend").Value.(core.FS))),
 		words:  loadWords(),
-		open:   func(path string) error { return application.Get().Browser.OpenFile(path) },
-		browse: func(url string) error { return application.Get().Browser.OpenURL(url) },
-		pickBooks: func() ([]string, error) {
-			return application.Get().Dialog.OpenFile().CanChooseFiles(true).SetTitle("Add manga to the shelf").
-				AddFilter("Manga (.cbz, .pdf, .epub, .cb7)", "*.cbz;*.pdf;*.epub;*.cb7").PromptForMultipleSelection()
-		},
-		pick: func(title string) (string, error) {
-			return application.Get().Dialog.OpenFile().CanChooseDirectories(true).CanChooseFiles(false).CanCreateDirectories(true).SetTitle(title).PromptForSingleSelection()
-		},
-	}
-	win := application.New(application.Options{
-		Name:        "Pinku",
-		Description: "A bookcase for manga, with MangaDex downloads",
-		Assets:      application.AssetOptions{Handler: a.handler()},
-		Mac:         application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
-	})
-	w := win.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "Pinku",
-		Width:            1180,
-		Height:           800,
-		MinWidth:         640,
-		MinHeight:        480,
-		BackgroundColour: application.NewRGB(24, 20, 18),
-		URL:              "/",
-		EnableFileDrop:   true, // drop .cbz files or folders of them onto the window
-	})
-	w.OnWindowEvent(events.Common.WindowFilesDropped, func(e *application.WindowEvent) {
-		a.Import(e.Context().DroppedFiles())
-	})
-	err := win.Run()
-	c.ServiceShutdown(core.Background()) // stops a download mid-way: "update" carries on from there
-	if err != nil {
-		fatal(err)
 	}
 }
 
-// open is the shelf at path (settings, progress; shelf.DefaultPath for real)
-// plus the Core with the download
-// queue in it. Both the window and the terminal commands start here.
-func open(path string) (*shelf.Shelf, *core.Core) {
+// openShelf is the shelf at path (settings, progress; shelf.DefaultPath for
+// real) plus the Core with the download queue in it. Both the window and the
+// terminal commands start here.
+func openShelf(path string) (*shelf.Shelf, *core.Core, error) {
 	r := shelf.Open(path)
 	if !r.OK {
-		fatal(core.Sprintf("can't open %s: %s", path, r.Error()))
+		return nil, nil, core.E("pinku", "can't open "+path, r.Err())
 	}
 	sh := r.Value.(*shelf.Shelf)
 	c := core.New(
@@ -103,15 +72,10 @@ func open(path string) (*shelf.Shelf, *core.Core) {
 		core.WithServiceLock(),
 	)
 	if r := c.ServiceStartup(c.Context(), nil); !r.OK {
-		fatal(r.Error())
+		sh.Close()
+		return nil, nil, core.E("pinku", "starting the download queue", r.Err())
 	}
-	return sh, c
-}
-
-// fatal reports what stopped Pinku from starting, and exits.
-func fatal(v any) {
-	core.Error(core.Sprintf("%v", v))
-	core.Exit(1)
+	return sh, c, nil
 }
 
 // loadWords: the page's text in her language. If it can't load, the page

@@ -6,6 +6,7 @@ import (
 	"archive/zip"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -144,5 +145,45 @@ func TestImportTrouble(t *testing.T) {
 	os.WriteFile(notZip, []byte("nope"), 0o644)
 	if got := SeriesOf(notZip); got != "Monster" {
 		t.Errorf("SeriesOf a broken .cbz = %q", got)
+	}
+}
+
+// Copies that can't happen are reported per book, and the rest carry on:
+// a series folder name taken by a file, an unreadable source, hidden files
+// in a dropped folder (skipped), and a series whose first book is a PDF
+// (the cover comes from its .cbz).
+func TestImportPerBookTrouble(t *testing.T) {
+	src := t.TempDir()
+	cbzWith(t, filepath.Join(src, "Berserk v01.cbz"), "")
+	cbzWith(t, filepath.Join(src, "Vagabond v01.cbz"), "")
+	lib := Library{Dir: filepath.Join(t.TempDir(), "Manga")}
+	os.MkdirAll(lib.Dir, 0o755)
+	os.WriteFile(filepath.Join(lib.Dir, "Berserk"), []byte("a file, not a folder"), 0o644)
+	got := lib.Import([]string{filepath.Join(src, "Berserk v01.cbz"), filepath.Join(src, "Vagabond v01.cbz")})
+	if len(got.Failed) != 1 || !strings.HasPrefix(got.Failed[0], "Berserk v01.cbz") || len(got.Added) != 1 {
+		t.Errorf("one bad, one good: %+v", got)
+	}
+
+	folder := filepath.Join(src, "Pluto")
+	os.Mkdir(folder, 0o755)
+	os.WriteFile(filepath.Join(folder, "A Pluto.pdf"), []byte("%PDF"), 0o644)
+	cbzWith(t, filepath.Join(folder, "B Pluto v01.cbz"), "")
+	cbzWith(t, filepath.Join(folder, ".hidden v99.cbz"), "")
+	got = lib.Import([]string{folder})
+	if len(got.Added) != 2 {
+		t.Errorf("hidden file imported, or books missed: %+v", got)
+	}
+	if s, _ := lib.Series("Pluto"); !s.HasCover {
+		t.Error("no cover from the .cbz after a PDF")
+	}
+
+	if runtime.GOOS != "windows" && os.Getuid() != 0 {
+		locked := filepath.Join(src, "Locked v01.cbz")
+		cbzWith(t, locked, "")
+		os.Chmod(locked, 0)
+		defer os.Chmod(locked, 0o644)
+		if got := lib.Import([]string{locked}); len(got.Failed) != 1 {
+			t.Errorf("an unreadable book: %+v", got)
+		}
 	}
 }

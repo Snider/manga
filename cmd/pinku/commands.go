@@ -98,7 +98,10 @@ func (tm terminal) update(folder string) core.Result {
 
 // queueAndWait queues downloads and prints how they go until they're done.
 func (tm terminal) queueAndWait(queue func(*downloader.Service, *shelf.Shelf) ([]downloader.Job, error)) core.Result {
-	sh, c := open(tm.shelfPath)
+	sh, c, err := openShelf(tm.shelfPath)
+	if err != nil {
+		return core.Fail(err)
+	}
 	defer sh.Close()
 	defer c.ServiceShutdown(core.Background())
 	d := core.MustServiceFor[*downloader.Service](c, "downloader")

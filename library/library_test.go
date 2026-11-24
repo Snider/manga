@@ -247,3 +247,31 @@ func TestMissingAndBroken(t *testing.T) {
 		t.Error("WriteInfo with a slash in the folder")
 	}
 }
+
+// Hostile .cbz pages: one claiming to be bigger than the reader will take,
+// and one whose data is corrupt. Errors, not a 4 GB allocation or garbage.
+func TestHostilePages(t *testing.T) {
+	l := shelf(t)
+	path := filepath.Join(l.Dir, "Old Favourite", "Hostile.cbz")
+	f, _ := os.Create(path)
+	z := zip.NewWriter(f)
+	w, _ := z.CreateRaw(&zip.FileHeader{Name: "001.jpg", Method: zip.Store, CompressedSize64: 4, UncompressedSize64: 1 << 32, CRC32: 0})
+	w.Write([]byte("tiny"))
+	w2, _ := z.CreateHeader(&zip.FileHeader{Name: "002.jpg", Method: zip.Store}) // stored, so its bytes are findable
+	w2.Write([]byte(strings.Repeat("page two ", 64)))
+	z.Close()
+	f.Close()
+	if _, _, err := l.Page("Old Favourite", "Hostile.cbz", 0); err == nil || !strings.Contains(err.Error(), "too big") {
+		t.Errorf("a page claiming 4 GB: %v", err)
+	}
+
+	b, _ := os.ReadFile(path)
+	i := strings.LastIndex(string(b), "page two ")
+	for j := i; j < i+40; j++ {
+		b[j] ^= 0xff // corrupt page two's data, not its header: the CRC catches it
+	}
+	os.WriteFile(path, b, 0o644)
+	if _, _, err := l.Page("Old Favourite", "Hostile.cbz", 1); err == nil {
+		t.Error("a corrupt page read")
+	}
+}

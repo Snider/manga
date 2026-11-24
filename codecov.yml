@@ -1,0 +1,14 @@
+# Codecov: coverage from the Windows and Linux CI runs, merged.
+ignore:
+  # main, fatal and the Wails window: need a desktop and a person, and fatal
+  # exits. Each step main takes (runTerminal, openShelf, newApp) is tested.
+  - "cmd/pinku/window.go"
+  # The stand-in mangadex-dl: it runs as a separate process when a test
+  # starts it, so its own lines can't be counted, only what it causes.
+  - "internal/fakedl"
+coverage:
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 1%

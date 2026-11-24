@@ -4,6 +4,7 @@ package main
 
 import (
 	"embed"
+	"io/fs"
 
 	core "github.com/dappcore/go"
 	i18n "github.com/dappcore/go-i18n/go"
@@ -25,16 +26,20 @@ type words struct {
 	auto  string   // what "same as Windows" means here
 }
 
-func newWords() (*words, error) {
+func newWords() (*words, error) { return newWordsFrom(localeFiles) }
+
+// newWordsFrom loads the locales/*.json in files (Pinku's own, embedded;
+// tests hand it broken ones).
+func newWordsFrom(files fs.FS) (*words, error) {
 	r := i18n.New()
 	if !r.OK {
 		return nil, r.Err()
 	}
 	svc := r.Value.(*i18n.Service)
-	if loaded := svc.AddLoader(i18n.NewFSLoader(localeFiles, "locales")); !loaded.OK {
+	if loaded := svc.AddLoader(i18n.NewFSLoader(files, "locales")); !loaded.OK {
 		return nil, loaded.Err()
 	}
-	src, err := localeFiles.ReadFile("locales/en.json")
+	src, err := fs.ReadFile(files, "locales/en.json")
 	if err != nil {
 		return nil, core.E("pinku.words", "read en.json", err)
 	}
@@ -43,7 +48,7 @@ func newWords() (*words, error) {
 		return nil, core.E("pinku.words", "en.json", parsed.Err())
 	}
 	w := &words{svc: svc, keys: flatten("", tree)}
-	entries, err := localeFiles.ReadDir("locales")
+	entries, err := fs.ReadDir(files, "locales")
 	if err != nil {
 		return nil, core.E("pinku.words", "list locales", err)
 	}
