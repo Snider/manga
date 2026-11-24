@@ -48,6 +48,10 @@ func newWords() (*words, error) {
 		return nil, core.E("pinku.words", "list locales", err)
 	}
 	for _, e := range entries {
+		// Hidden files aren't languages (macOS's "._en.json"; go-i18n skips them too).
+		if e.IsDir() || core.HasPrefix(e.Name(), ".") || !core.HasSuffix(e.Name(), ".json") {
+			continue
+		}
 		w.langs = append(w.langs, core.TrimSuffix(e.Name(), ".json"))
 	}
 	w.auto = w.pick(svc.Language()) // detected from Windows (or LANG) when go-i18n started
