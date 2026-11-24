@@ -148,3 +148,13 @@ func TestOpenFails(t *testing.T) {
 		t.Error("opened a store inside a file")
 	}
 }
+
+// PINKU_HOME keeps a test copy's store and bookcase in one folder, away
+// from the real ones.
+func TestPinkuHome(t *testing.T) {
+	dev := t.TempDir()
+	t.Setenv("PINKU_HOME", dev)
+	if Dir() != dev || DefaultPath() != filepath.Join(dev, "shelf.db") || DefaultLibrary() != filepath.Join(dev, "Manga") {
+		t.Errorf("Dir %s, DefaultPath %s, DefaultLibrary %s", Dir(), DefaultPath(), DefaultLibrary())
+	}
+}

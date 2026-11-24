@@ -55,7 +55,13 @@ type Shelf struct {
 // Dir is Pinku's own folder (the store, and mangadex-dl if it fetched it).
 // It was called MangaShelf before the app had its name; that folder is moved
 // over the first time, so her settings and where she was reading come along.
+//
+// PINKU_HOME (a dev tag, never set for her) moves everything, store and
+// default bookcase, into one folder: a test copy can't touch a real shelf.
 func Dir() string {
+	if dev := core.Getenv("PINKU_HOME"); dev != "" {
+		return dev
+	}
 	d := core.TempDir()
 	if r := core.UserConfigDir(); r.OK {
 		d = r.Value.(string)
@@ -80,6 +86,9 @@ func DefaultPath() string { return core.PathJoin(Dir(), "shelf.db") }
 
 // DefaultLibrary is Documents\Manga: somewhere she'll find it in Explorer.
 func DefaultLibrary() string {
+	if dev := core.Getenv("PINKU_HOME"); dev != "" {
+		return core.PathJoin(dev, "Manga")
+	}
 	home := core.UserHomeDir()
 	if !home.OK {
 		return core.PathJoin(Dir(), "Manga")
