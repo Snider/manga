@@ -23,6 +23,7 @@ type app struct {
 	open      func(path string) error // open a folder/file with the OS
 	browse    func(url string) error  // open a web page in her browser
 	assets    core.Handler            // the page itself
+	words     *words                  // the page's text, in her language
 }
 
 func (a *app) lib() library.Library { return library.Library{Dir: a.shelf.Settings().Library} }
@@ -235,6 +236,14 @@ func (a *app) handler() core.Handler {
 		id, _ := core.Atoi(r.PathValue("id")).Value.(int)
 		a.down.Cancel(id)
 		w.WriteHeader(core.StatusNoContent)
+	})
+	mux.HandleFunc("GET /api/strings", func(w core.ResponseWriter, r *core.Request) {
+		if a.words == nil {
+			send(w, map[string]any{"lang": "en", "auto": "en", "languages": []string{"en"}, "strings": map[string]string{}})
+			return
+		}
+		lang, text := a.words.For(a.shelf.Settings().Words)
+		send(w, map[string]any{"lang": lang, "auto": a.words.auto, "languages": a.words.langs, "strings": text})
 	})
 	mux.HandleFunc("GET /api/settings", func(w core.ResponseWriter, r *core.Request) {
 		set := a.shelf.Settings()

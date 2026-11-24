@@ -1,5 +1,8 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: EUPL-1.2 -->
+<!-- Text is English here and swapped for her language from /api/strings:
+     data-i18n="key" sets the text (a {{.Slot}} in it is where the child with
+     data-slot="Slot" goes), data-i18n-placeholder / -title set those. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -11,90 +14,95 @@
   <header class="top">
     <div class="brand">🌸 Pinku<small lang="ja">ピンク</small></div>
     <nav>
-      <button data-tab="shelf" class="on">Bookcase</button>
-      <button data-tab="find">Find manga</button>
-      <button data-tab="jobs">Downloads <span id="busy" class="dot" hidden></span></button>
-      <button data-tab="settings">Settings</button>
+      <button data-tab="shelf" class="on" data-i18n="ui.tab.shelf">Bookcase</button>
+      <button data-tab="find" data-i18n="ui.tab.find">Find manga</button>
+      <button data-tab="jobs"><span data-i18n="ui.tab.jobs">Downloads</span> <span id="busy" class="dot" hidden></span></button>
+      <button data-tab="settings" data-i18n="ui.tab.settings">Settings</button>
     </nav>
   </header>
 
   <main>
     <section id="shelf" class="tab on">
       <div class="bar">
-        <input id="filter" type="search" placeholder="Look for something on the shelf…">
+        <input id="filter" type="search" placeholder="Look for something on the shelf…" data-i18n-placeholder="ui.shelf.filter">
         <select id="sort">
-          <option value="added">Newest first</option>
-          <option value="title">A to Z</option>
-          <option value="reading">Reading now</option>
+          <option value="added" data-i18n="ui.shelf.sort_added">Newest first</option>
+          <option value="title" data-i18n="ui.shelf.sort_title">A to Z</option>
+          <option value="reading" data-i18n="ui.shelf.sort_reading">Reading now</option>
         </select>
-        <button id="update-all" class="ghost" title="Ask MangaDex for new chapters of everything">Check for new chapters</button>
-        <button id="add-files" class="ghost" title="Or drag .cbz files and folders onto the window">Add files…</button>
-        <button id="open-library" class="ghost">Open folder</button>
+        <button id="update-all" class="ghost" title="Ask MangaDex for new chapters of everything" data-i18n="ui.shelf.update_all" data-i18n-title="ui.shelf.update_all_tip">Check for new chapters</button>
+        <button id="add-files" class="ghost" title="Or drag .cbz files and folders onto the window" data-i18n="ui.shelf.add_files" data-i18n-title="ui.shelf.add_files_tip">Add files…</button>
+        <button id="open-library" class="ghost" data-i18n="ui.shelf.open_folder">Open folder</button>
       </div>
       <div id="continue" class="continue" hidden>
-        <h2>Continue reading</h2>
+        <h2 data-i18n="ui.shelf.continue">Continue reading</h2>
         <div id="continue-row" class="continue-row"></div>
       </div>
       <div id="shelves"></div>
       <div id="empty" class="empty" hidden>
-        <p>The bookcase is empty.</p>
-        <p><button class="primary" data-go="find">Find some manga</button></p>
-        <p class="dim">Or drag manga you already have (.cbz files, or folders of them) onto this window.</p>
-        <p class="dim">They're copied into <a href="#" id="empty-folder"></a>, one folder per series.</p>
+        <p data-i18n="ui.shelf.empty">The bookcase is empty.</p>
+        <p><button class="primary" data-go="find" data-i18n="ui.shelf.find_some">Find some manga</button></p>
+        <p class="dim" data-i18n="ui.shelf.empty_drag">Or drag manga you already have (.cbz files, or folders of them) onto this window.</p>
+        <p class="dim" data-i18n="ui.shelf.empty_where">They're copied into <a href="#" id="empty-folder" data-slot="Folder"></a>, one folder per series.</p>
       </div>
     </section>
 
     <section id="find" class="tab">
       <form id="search" class="bar">
-        <input id="q" type="search" placeholder="Title, or paste a MangaDex link" autocomplete="off">
-        <button class="primary">Search</button>
+        <input id="q" type="search" placeholder="Title, or paste a MangaDex link" autocomplete="off" data-i18n-placeholder="ui.find.placeholder">
+        <button class="primary" data-i18n="ui.find.search">Search</button>
       </form>
-      <p id="find-note" class="dim note">Searches <b>MangaDex</b>. Pick one and it goes on your shelf, downloaded volume by volume.</p>
+      <p id="find-note" class="dim note" data-i18n="ui.find.note">Searches <b data-slot="MangaDex">MangaDex</b>. Pick one and it goes on your shelf, downloaded volume by volume.</p>
       <div id="results" class="results"></div>
     </section>
 
     <section id="jobs" class="tab">
       <div id="joblist"></div>
-      <p id="nojobs" class="empty dim">Nothing downloading. Things you add from <a href="#" data-go="find">Find manga</a> show up here.</p>
+      <p id="nojobs" class="empty dim" data-i18n="ui.jobs.none">Nothing downloading. Things you add from <a href="#" data-go="find" data-slot="Find" data-i18n="ui.tab.find">Find manga</a> show up here.</p>
     </section>
 
     <section id="settings" class="tab">
       <form id="settings-form" class="settings">
-        <label>Bookcase folder
-          <span class="row"><input id="s-library" required><button type="button" id="pick" class="ghost">Choose…</button></span>
-          <small>Each series is a folder in here. Put it in OneDrive or on a USB drive if you like.</small>
+        <label><span data-i18n="ui.settings.library">Bookcase folder</span>
+          <span class="row"><input id="s-library" required><button type="button" id="pick" class="ghost" data-i18n="ui.settings.choose">Choose…</button></span>
+          <small data-i18n="ui.settings.library_hint">Each series is a folder in here. Put it in OneDrive or on a USB drive if you like.</small>
         </label>
-        <label>Language
-          <select id="s-language">
-            <option value="en">English</option>
-            <option value="fr">French</option>
-            <option value="de">German</option>
-            <option value="es">Spanish</option>
-            <option value="es-la">Spanish (Latin America)</option>
-            <option value="pt-br">Portuguese (Brazil)</option>
-            <option value="it">Italian</option>
-            <option value="pl">Polish</option>
-            <option value="ru">Russian</option>
-            <option value="tr">Turkish</option>
-            <option value="id">Indonesian</option>
-            <option value="vi">Vietnamese</option>
-            <option value="ja">Japanese (raw)</option>
+        <label><span data-i18n="ui.settings.ui_language">Pinku's language</span>
+          <select id="s-words">
+            <option value="" data-i18n="ui.settings.ui_auto">Same as Windows</option>
           </select>
         </label>
-        <label>Files
+        <label><span data-i18n="ui.settings.download_language">Download manga in</span>
+          <select id="s-language">
+            <option value="en" data-i18n="ui.lang.en">English</option>
+            <option value="tr" data-i18n="ui.lang.tr">Turkish</option>
+            <option value="fr" data-i18n="ui.lang.fr">French</option>
+            <option value="de" data-i18n="ui.lang.de">German</option>
+            <option value="es" data-i18n="ui.lang.es">Spanish</option>
+            <option value="es-la" data-i18n="ui.lang.es-la">Spanish (Latin America)</option>
+            <option value="pt-br" data-i18n="ui.lang.pt-br">Portuguese (Brazil)</option>
+            <option value="it" data-i18n="ui.lang.it">Italian</option>
+            <option value="pl" data-i18n="ui.lang.pl">Polish</option>
+            <option value="ru" data-i18n="ui.lang.ru">Russian</option>
+            <option value="id" data-i18n="ui.lang.id">Indonesian</option>
+            <option value="vi" data-i18n="ui.lang.vi">Vietnamese</option>
+            <option value="ja" data-i18n="ui.lang.ja">Japanese (raw)</option>
+          </select>
+        </label>
+        <label><span data-i18n="ui.settings.files">Files</span>
           <select id="s-format"></select>
-          <small>One file per volume makes a tidy shelf. New series use this; ones already on the shelf keep theirs.</small>
+          <small data-i18n="ui.settings.files_hint">One file per volume makes a tidy shelf. New series use this; ones already on the shelf keep theirs.</small>
         </label>
         <details>
-          <summary>The downloader</summary>
+          <summary data-i18n="ui.settings.tool">The downloader</summary>
           <p id="tool-status" class="dim"></p>
-          <label>mangadex-dl, if it's somewhere unusual
-            <input id="s-tool" placeholder="(found by itself)">
+          <label><span data-i18n="ui.settings.tool_path">mangadex-dl, if it's somewhere unusual</span>
+            <input id="s-tool" placeholder="(found by itself)" data-i18n-placeholder="ui.settings.tool_auto">
           </label>
         </details>
-        <p><button class="primary">Save</button> <span id="saved" class="dim"></span></p>
+        <p><button class="primary" data-i18n="ui.settings.save">Save</button> <span id="saved" class="dim"></span></p>
       </form>
-      <p class="dim credits">Downloads by <a href="https://github.com/mansuf/mangadex-downloader" data-ext>mangadex-dl</a> from <a href="https://mangadex.org" data-ext>MangaDex</a>, where volunteers scanlate. If you love a series, buy the official volumes.</p>
+      <p class="dim credits" data-i18n="ui.settings.credits">Downloads by <a href="https://github.com/mansuf/mangadex-downloader" data-ext data-slot="Tool">mangadex-dl</a> from <a href="https://mangadex.org" data-ext data-slot="MangaDex">MangaDex</a>, where volunteers scanlate. If you love a series, buy the official volumes.</p>
     </section>
   </main>
 
@@ -105,9 +113,9 @@
         <h2 id="d-title"></h2>
         <p id="d-meta" class="dim"></p>
         <p class="row">
-          <button id="d-continue" class="primary">Read</button>
-          <button id="d-update" class="ghost">Check for new chapters</button>
-          <button id="d-folder" class="ghost">Open folder</button>
+          <button id="d-continue" class="primary" data-i18n="ui.series.read">Read</button>
+          <button id="d-update" class="ghost" data-i18n="ui.series.check">Check for new chapters</button>
+          <button id="d-folder" class="ghost" data-i18n="ui.series.open_folder">Open folder</button>
         </p>
       </div>
       <button class="close" data-close>✕</button>
@@ -117,10 +125,10 @@
 
   <div id="reader" class="reader" hidden>
     <div class="reader-bar">
-      <button id="r-close">← Shelf</button>
+      <button id="r-close" data-i18n="ui.reader.back">← Shelf</button>
       <span id="r-title"></span>
       <span class="spacer"></span>
-      <label class="dim"><input type="checkbox" id="r-rtl" checked> Right to left</label>
+      <label class="dim"><input type="checkbox" id="r-rtl" checked> <span data-i18n="ui.reader.rtl">Right to left</span></label>
       <span id="r-page" class="dim"></span>
     </div>
     <div id="r-stage" class="stage"><img id="r-img" alt=""></div>
@@ -128,7 +136,7 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <div class="drop-hint">Drop to put it on the shelf</div>
+  <div class="drop-hint" data-i18n="ui.shelf.drop">Drop to put it on the shelf</div>
   <script type="module" src="/wails/runtime.js"></script><!-- the window's own: file drops -->
   <script src="app.js"></script>
 </body>

@@ -27,6 +27,50 @@ async function api(path, body) {
   return data;
 }
 
+// --- her language --------------------------------------------------------
+let S = {}; // ui.* key → text in her language, from /api/strings
+
+// t("ui.x", {Title: "…"}): the text with its {{.Name}} placeholders filled.
+// A key with no text yet shows the fallback (or the key), never nothing.
+function t(key, vars = {}, fallback) {
+  const tpl = S[key] ?? fallback ?? key;
+  return tpl.replace(/\{\{\.(\w+)\}\}/g, (_, name) => (name in vars ? String(vars[name]) : ""));
+}
+
+// tn: t with a count, from key_one or key_other. English and Turkish both
+// work this way (Turkish keeps the noun singular in both forms).
+const tn = (key, n, vars = {}) => t(key + (n === 1 ? "_one" : "_other"), { N: n, ...vars });
+
+// applyStrings swaps the page's English for her language: data-i18n sets an
+// element's text, where a {{.Slot}} is the child marked data-slot="Slot" (a
+// link, say) put back in its place; data-i18n-placeholder and -title too.
+// Text only: nothing translated can become markup.
+function applyStrings() {
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    const tpl = S[node.dataset.i18n];
+    if (!tpl) return;
+    const slots = {};
+    node.querySelectorAll("[data-slot]").forEach((s) => {
+      if (s.parentElement.closest("[data-i18n]") === node) slots[s.dataset.slot] = s;
+    });
+    const parts = tpl.split(/\{\{\.(\w+)\}\}/);
+    node.replaceChildren(...parts.map((p, i) => (i % 2 ? slots[p] || "" : p)));
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((n) => { if (S[n.dataset.i18nPlaceholder]) n.placeholder = S[n.dataset.i18nPlaceholder]; });
+  document.querySelectorAll("[data-i18n-title]").forEach((n) => { if (S[n.dataset.i18nTitle]) n.title = S[n.dataset.i18nTitle]; });
+}
+
+async function loadStrings() {
+  let d;
+  try { d = await api("strings"); } catch { return; } // the page keeps its English
+  S = d.strings || {};
+  document.documentElement.lang = d.lang;
+  const pick = $("s-words");
+  pick.replaceChildren(el("option", { value: "", "data-i18n": "ui.settings.ui_auto" }, "Same as Windows"),
+    ...d.languages.map((l) => el("option", { value: l }, t("ui.lang." + l, {}, l))));
+  applyStrings();
+}
+
 let toastTimer;
 function toast(msg, bad = false) {
   const t = $("toast");
@@ -100,7 +144,7 @@ function drawContinue() {
   const items = $("filter").value.trim() ? [] : reading();
   $("continue").hidden = items.length === 0;
   $("continue-row").replaceChildren(...items.map(({ s, b, page, pages }) => {
-    const where = pages ? b.name + " · page " + (page + 1) + " of " + pages : "Next: " + b.name;
+    const where = pages ? t("ui.shelf.where_page", { Book: b.name, Page: page + 1, Pages: pages }) : t("ui.shelf.where_next", { Book: b.name });
     const pct = pages ? Math.round((100 * (page + 1)) / pages) : 0;
     return el("button", { class: "cont", title: s.title + " · " + where, onclick: () => openBook(s, b) },
       s.hasCover ? el("img", { src: "/api/cover/" + enc(s.folder), alt: "" }) : el("div", { class: "nocover" }),
@@ -136,9 +180,9 @@ function spine(s) {
     : el("div", { class: "cover nocover" }, s.title);
   return el("div", { class: "book", title: s.title, onclick: () => openSeries(s.folder) },
     cover,
-    unread > 0 && s.read > 0 ? el("span", { class: "badge", title: unread + " not read yet" }, String(unread)) : null,
+    unread > 0 && s.read > 0 ? el("span", { class: "badge", title: tn("ui.shelf.unread", unread) }, String(unread)) : null,
     el("div", { class: "label" }, s.title),
-    el("div", { class: "meter", title: s.read + " of " + s.books.length + " read" }, el("i", { style: "width:" + pct + "%" })),
+    el("div", { class: "meter", title: t("ui.shelf.read_of", { Read: s.read, Total: s.books.length }) }, el("i", { style: "width:" + pct + "%" })),
   );
 }
 
@@ -150,7 +194,7 @@ $("empty-folder").onclick = (e) => { e.preventDefault(); api("open", {}).catch(o
 $("update-all").onclick = async () => {
   try {
     const jobs = await api("update", { folder: "" });
-    toast(jobs.length ? "Checking " + jobs.length + " series for new chapters…" : "Nothing from MangaDex on the shelf yet.");
+    toast(jobs.length ? t("ui.shelf.checking_all", { N: jobs.length }) : t("ui.shelf.nothing_from_dex"));
     if (jobs.length) watchJobs();
   } catch (e) { oops(e); }
 };
@@ -161,7 +205,7 @@ let importTimer = null;
 
 function watchImports() {
   if (importTimer) return;
-  toast("Adding to the shelf…");
+  toast(t("ui.import.adding"));
   importTimer = setInterval(async () => {
     let st;
     try { st = await api("imports"); } catch { return; }
@@ -171,11 +215,11 @@ function watchImports() {
     importSeen = st.n;
     const r = st.result;
     const parts = [];
-    if (r.added.length) parts.push(r.added.length + (r.added.length === 1 ? " book" : " books") + " added to " + r.series.join(", "));
-    if (r.same.length) parts.push(r.same.length + " already on the shelf");
-    if (r.skipped.length) parts.push("not manga: " + r.skipped.join(", "));
-    if (r.failed.length) parts.push("couldn't copy: " + r.failed.join("; "));
-    toast(parts.join(" · ") || "Nothing to add.", r.failed.length > 0 && !r.added.length);
+    if (r.added.length) parts.push(tn("ui.import.added", r.added.length, { Series: r.series.join(", ") }));
+    if (r.same.length) parts.push(t("ui.import.same", { N: r.same.length }));
+    if (r.skipped.length) parts.push(t("ui.import.skipped", { List: r.skipped.join(", ") }));
+    if (r.failed.length) parts.push(t("ui.import.failed", { List: r.failed.join("; ") }));
+    toast(parts.join(" · ") || t("ui.import.nothing"), r.failed.length > 0 && !r.added.length);
     show("shelf");
   }, 700);
 }
@@ -211,15 +255,15 @@ function openSeries(folder) {
   current = s;
   $("d-cover").src = s.hasCover ? "/api/cover/" + enc(s.folder) : "";
   $("d-title").textContent = s.title;
-  $("d-meta").textContent = s.books.length + (s.books.length === 1 ? " book" : " books") + " · " + s.read + " read" + (s.mangadex ? " · from MangaDex" : "");
+  $("d-meta").textContent = tn("ui.series.books", s.books.length) + " · " + t("ui.series.read_count", { N: s.read }) + (s.mangadex ? " · " + t("ui.series.from_dex") : "");
   $("d-update").hidden = !s.mangadex;
   const next = nextBook(s);
-  $("d-continue").textContent = next && s.progress[next.file] ? "Carry on: " + next.name : next ? "Read " + next.name : "Read";
+  $("d-continue").textContent = next && s.progress[next.file] ? t("ui.series.carry_on", { Book: next.name }) : next ? t("ui.series.read_book", { Book: next.name }) : t("ui.series.read");
   $("d-continue").disabled = !next;
   $("d-continue").onclick = () => next && openBook(s, next);
   $("d-books").replaceChildren(...s.books.map((b) => {
     const p = s.progress[b.file];
-    const state = !p ? "" : p.page >= p.pages - 1 ? "✓ read" : "page " + (p.page + 1) + " of " + p.pages;
+    const state = !p ? "" : p.page >= p.pages - 1 ? t("ui.series.done") : t("ui.series.page_of", { Page: p.page + 1, Pages: p.pages });
     return el("li", { onclick: () => openBook(s, b) },
       el("span", { class: "name" }, b.name),
       el("span", { class: p && p.page >= p.pages - 1 ? "done" : "dim" }, state),
@@ -239,7 +283,7 @@ function nextBook(s) {
 $("d-update").onclick = async () => {
   try {
     await api("update", { folder: current.folder });
-    toast("Checking " + current.title + " for new chapters…");
+    toast(t("ui.series.checking", { Title: current.title }));
     watchJobs();
   } catch (e) { oops(e); }
 };
@@ -258,7 +302,7 @@ async function openBook(s, b) {
   try {
     info = await api("book/" + enc(s.folder) + "/" + enc(b.file));
   } catch (e) { return oops(e); }
-  if (!info.pages) return toast(b.name + " has no pages in it.", true);
+  if (!info.pages) return toast(t("ui.reader.no_pages", { Book: b.name }), true);
   $("series").close();
   Object.assign(R, { series: s, book: b, pages: info.pages, page: Math.min(info.page, info.pages - 1) });
   $("r-title").textContent = s.title + " · " + b.name;
@@ -291,11 +335,11 @@ async function endOfBook() {
   const i = R.series.books.indexOf(R.book);
   const next = R.series.books[i + 1];
   if (next && next.format === "cbz") {
-    toast("On to " + next.name);
+    toast(t("ui.reader.on_to", { Book: next.name }));
     const s = R.series;
     await openBook(s, next);
   } else {
-    toast("That's the last one on the shelf." + (R.series.mangadex ? " Check for new chapters to see if there's more." : ""));
+    toast(t(R.series.mangadex ? "ui.reader.last_dex" : "ui.reader.last"));
     closeReader();
   }
 }
@@ -332,36 +376,36 @@ $("search").addEventListener("submit", async (e) => {
   const q = $("q").value.trim();
   if (!q) return;
   const box = $("results");
-  box.replaceChildren(el("p", { class: "dim" }, "Searching MangaDex…"));
+  box.replaceChildren(el("p", { class: "dim" }, t("ui.find.searching")));
   let data;
   try {
     data = await api("search?q=" + enc(q));
   } catch (e) { box.replaceChildren(); return oops(e); }
-  if (!data.results.length) return box.replaceChildren(el("p", { class: "dim" }, "Nothing called that on MangaDex. Try the Japanese title, or fewer words."));
+  if (!data.results.length) return box.replaceChildren(el("p", { class: "dim" }, t("ui.find.none")));
   box.replaceChildren(...data.results.map((m) => result(m, data.owned[m.id], data.language)));
 });
 
 function result(m, owned, lang) {
   const inLang = m.languages.includes(lang);
-  const btn = el("button", { class: "primary go" }, owned ? "Check for new chapters" : "Put it on my shelf");
+  const btn = el("button", { class: "primary go" }, owned ? t("ui.find.check") : t("ui.find.add"));
   btn.onclick = async () => {
     btn.disabled = true;
     try {
       await api("add", m);
-      btn.textContent = "Downloading…";
-      toast(m.title + " is on its way to the shelf.");
+      btn.textContent = t("ui.find.downloading");
+      toast(t("ui.find.on_its_way", { Title: m.title }));
       watchJobs();
     } catch (e) { btn.disabled = false; oops(e); }
   };
-  const facts = [m.status, m.year, m.lastVolume && "vol. " + m.lastVolume, m.authors.join(", ")].filter(Boolean).join(" · ");
+  const facts = [m.status && t("ui.status." + m.status, {}, m.status), m.year, m.lastVolume && t("ui.find.vol", { N: m.lastVolume }), m.authors.join(", ")].filter(Boolean).join(" · ");
   return el("div", { class: "result" },
     el("img", { src: m.cover || "", alt: "", loading: "lazy", referrerpolicy: "no-referrer" }),
     el("div", {},
       el("h3", {}, m.title),
       m.altTitle ? el("p", { class: "alt dim" }, m.altTitle) : null,
       el("div", {},
-        owned ? el("span", { class: "pill ok" }, "on your shelf") : null,
-        el("span", { class: "pill " + (inLang ? "ok" : "no") }, inLang ? "in your language" : "not in your language"),
+        owned ? el("span", { class: "pill ok" }, t("ui.find.owned")) : null,
+        el("span", { class: "pill " + (inLang ? "ok" : "no") }, inLang ? t("ui.find.in_lang") : t("ui.find.not_in_lang")),
       ),
       el("p", { class: "desc" }, m.description || ""),
       el("div", { class: "tags" }, facts),
@@ -395,13 +439,13 @@ async function loadJobs() {
 
 function jobRow(j) {
   const words = {
-    queued: "Waiting its turn",
-    running: j.now || "Starting…",
-    done: j.pages ? "Done: " + j.pages + " new pages" : "Done: nothing new",
+    queued: t("ui.jobs.queued"),
+    running: j.now || t("ui.jobs.starting"),
+    done: j.pages ? tn("ui.jobs.done_pages", j.pages) : t("ui.jobs.done_nothing"),
     failed: j.error,
-    cancelled: "Stopped",
+    cancelled: t("ui.jobs.stopped"),
   };
-  const extra = j.state === "running" && j.volumes ? " · " + j.volumes + (j.volumes === 1 ? " volume" : " volumes") + " finished" : "";
+  const extra = j.state === "running" && j.volumes ? " · " + tn("ui.jobs.volumes", j.volumes) : "";
   const log = el("pre", { hidden: !opened.has(j.id) });
   if (opened.has(j.id)) fillLog(j.id, log);
   return el("div", { class: "job " + j.state },
@@ -410,13 +454,13 @@ function jobRow(j) {
       el("div", { class: "state" }, words[j.state] + extra),
       log,
     ),
-    el("button", { class: "ghost", onclick: () => { opened.has(j.id) ? opened.delete(j.id) : opened.add(j.id); loadJobs(); } }, opened.has(j.id) ? "Hide log" : "Log"),
-    j.state === "queued" || j.state === "running" ? el("button", { class: "ghost", onclick: () => api("jobs/" + j.id + "/cancel", {}).then(loadJobs).catch(oops) }, "Stop") : null,
+    el("button", { class: "ghost", onclick: () => { opened.has(j.id) ? opened.delete(j.id) : opened.add(j.id); loadJobs(); } }, opened.has(j.id) ? t("ui.jobs.hide_log") : t("ui.jobs.log")),
+    j.state === "queued" || j.state === "running" ? el("button", { class: "ghost", onclick: () => api("jobs/" + j.id + "/cancel", {}).then(loadJobs).catch(oops) }, t("ui.jobs.stop")) : null,
   );
 }
 
 async function fillLog(id, pre) {
-  try { pre.textContent = (await api("jobs/" + id + "/log")).join("\n") || "(nothing yet)"; } catch {}
+  try { pre.textContent = (await api("jobs/" + id + "/log")).join("\n") || t("ui.jobs.log_empty"); } catch {}
 }
 
 // --- settings ----------------------------------------------------------------
@@ -427,11 +471,12 @@ async function loadSettings() {
   $("s-library").value = s.library;
   $("s-language").value = s.language;
   if ($("s-language").value !== s.language) $("s-language").append(el("option", { value: s.language, selected: true }, s.language));
-  $("s-format").replaceChildren(...Object.entries(d.formats).map(([v, label]) => el("option", { value: v, selected: v === s.format }, label)));
+  $("s-format").replaceChildren(...Object.entries(d.formats).map(([v, label]) => el("option", { value: v, selected: v === s.format }, t("ui.settings.format_" + v, {}, label))));
   $("s-tool").value = s.tool;
+  $("s-words").value = s.words || "";
   $("tool-status").textContent = d.tool
-    ? "Using " + d.tool
-    : d.canFetch ? "Not downloaded yet: it's fetched (about 30 MB, once) the first time you add something." : "Not found: install it with pip install mangadex-downloader.";
+    ? t("ui.settings.using", { Path: d.tool })
+    : d.canFetch ? t("ui.settings.not_fetched") : t("ui.settings.not_found");
 }
 
 $("pick").onclick = async () => {
@@ -444,12 +489,19 @@ $("pick").onclick = async () => {
 $("settings-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   try {
-    await api("settings", { library: $("s-library").value.trim(), language: $("s-language").value, format: $("s-format").value, tool: $("s-tool").value.trim() });
-    $("saved").textContent = "Saved.";
+    const words = $("s-words").value;
+    const before = document.documentElement.lang;
+    await api("settings", { library: $("s-library").value.trim(), language: $("s-language").value, format: $("s-format").value, tool: $("s-tool").value.trim(), words });
+    await loadStrings(); // Pinku's language may have changed: redraw in it
+    $("s-words").value = words;
+    if (document.documentElement.lang !== before) { loadSettings(); loadShelf(); }
+    $("saved").textContent = t("ui.settings.saved");
     setTimeout(() => ($("saved").textContent = ""), 2500);
   } catch (e) { oops(e); }
 });
 
 // --- start -------------------------------------------------------------------
-loadShelf();
-watchJobs();
+loadStrings().then(() => {
+  loadShelf();
+  watchJobs();
+});

@@ -50,6 +50,7 @@ func main() {
 		dex:    mangadex.New(),
 		down:   core.MustServiceFor[*downloader.Service](c, "downloader"),
 		assets: application.BundledAssetFileServer(page),
+		words:  loadWords(),
 		open:   func(path string) error { return application.Get().Browser.OpenFile(path) },
 		browse: func(url string) error { return application.Get().Browser.OpenURL(url) },
 		pickBooks: func() ([]string, error) {
@@ -110,4 +111,15 @@ func open() (*shelf.Shelf, *core.Core) {
 func fatal(v any) {
 	core.Error(core.Sprintf("%v", v))
 	core.Exit(1)
+}
+
+// loadWords: the page's text in her language. If it can't load, the page
+// keeps the English it's written in.
+func loadWords() *words {
+	w, err := newWords()
+	if err != nil {
+		core.Warn("translations didn't load: the window stays in English", "err", err)
+		return nil
+	}
+	return w
 }

@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -55,6 +56,7 @@ func testApp(t *testing.T, libDir string) (*app, *httptest.Server) {
 		assets: http.FileServerFS(page),
 		open:   func(p string) error { opened = append(opened, p); return nil },
 		browse: func(u string) error { browsed = append(browsed, u); return nil },
+		words:  loadWords(),
 	}
 	srv := httptest.NewServer(a.handler())
 	t.Cleanup(srv.Close)
@@ -221,4 +223,30 @@ func TestPreview(t *testing.T) {
 	}
 	t.Log("http://127.0.0.1:8765")
 	http.Serve(l, a.handler())
+}
+
+// Pinku speaks Turkish once she picks it, and Windows' language until then.
+func TestStringsFollowTheSetting(t *testing.T) {
+	a, srv := testApp(t, seed(t))
+	var got struct {
+		Lang      string            `json:"lang"`
+		Languages []string          `json:"languages"`
+		Strings   map[string]string `json:"strings"`
+	}
+	if fetch(t, srv.URL+"/api/strings", &got) != 200 || got.Strings["ui.tab.shelf"] == "" {
+		t.Fatalf("strings: %+v", got)
+	}
+	set := a.shelf.Settings()
+	set.Words = "tr"
+	if r := a.shelf.Save(set); !r.OK {
+		t.Fatal(r.Error())
+	}
+	fetch(t, srv.URL+"/api/strings", &got)
+	if got.Lang != "tr" || got.Strings["ui.tab.shelf"] != "Kitaplık" || !slices.Contains(got.Languages, "tr") {
+		t.Fatalf("after choosing Turkish: %s %q %v", got.Lang, got.Strings["ui.tab.shelf"], got.Languages)
+	}
+	set.Words = "not a language!"
+	if r := a.shelf.Save(set); r.OK {
+		t.Fatal("saved a nonsense language")
+	}
 }

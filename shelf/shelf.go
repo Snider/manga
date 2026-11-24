@@ -23,6 +23,7 @@ type Settings struct {
 	Language string `json:"language"` // what to download (MangaDex code: en, fr, es-la, pt-br…)
 	Format   string `json:"format"`   // mangadex-dl --save-as: cbz-volume (a file per volume) or cbz (per chapter)
 	Tool     string `json:"tool"`     // mangadex-dl, if it isn't found by itself ("" = find it)
+	Words    string `json:"words"`    // the language Pinku itself speaks ("" = same as Windows)
 }
 
 // Formats she can choose between (the reader opens all of them).
@@ -118,6 +119,9 @@ func (s *Shelf) Settings() Settings {
 		v.Format = all["format"]
 	}
 	v.Tool = all["tool"]
+	if all["words"] == "" || ValidLanguage(all["words"]) {
+		v.Words = all["words"]
+	}
 	return v
 }
 
@@ -132,7 +136,10 @@ func (s *Shelf) Save(v Settings) core.Result {
 	if !ValidLanguage(v.Language) {
 		return core.Fail(core.E("shelf.Save", "language is a code like en or pt-br", nil))
 	}
-	for k, val := range map[string]string{"library": v.Library, "language": v.Language, "format": v.Format, "tool": v.Tool} {
+	if v.Words != "" && !ValidLanguage(v.Words) {
+		return core.Fail(core.E("shelf.Save", "Pinku's language is a code like en or tr, or empty for Windows'", nil))
+	}
+	for k, val := range map[string]string{"library": v.Library, "language": v.Language, "format": v.Format, "tool": v.Tool, "words": v.Words} {
 		if r := s.db.Set("settings", k, val); !r.OK {
 			return r
 		}
