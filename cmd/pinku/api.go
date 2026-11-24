@@ -3,11 +3,7 @@
 package main
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/url"
-	"os"
-	"strconv"
+	core "github.com/dappcore/go"
 
 	"manga/downloader"
 	"manga/library"
@@ -26,7 +22,7 @@ type app struct {
 	imports   importer
 	open      func(path string) error // open a folder/file with the OS
 	browse    func(url string) error  // open a web page in her browser
-	assets    http.Handler            // the page itself
+	assets    core.Handler            // the page itself
 }
 
 func (a *app) lib() library.Library { return library.Library{Dir: a.shelf.Settings().Library} }
@@ -38,12 +34,12 @@ type shelfSeries struct {
 	Read     int                       `json:"read"` // books finished
 }
 
-func (a *app) handler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/shelf", func(w http.ResponseWriter, r *http.Request) {
+func (a *app) handler() core.Handler {
+	mux := &core.ServeMux{}
+	mux.HandleFunc("GET /api/shelf", func(w core.ResponseWriter, r *core.Request) {
 		series, err := a.lib().Scan()
 		if err != nil {
-			fail(w, err.Error(), http.StatusInternalServerError)
+			fail(w, err.Error(), core.StatusInternalServerError)
 			return
 		}
 		out := make([]shelfSeries, 0, len(series))
@@ -59,37 +55,37 @@ func (a *app) handler() http.Handler {
 		}
 		send(w, map[string]any{"library": a.lib().Dir, "series": out, "busy": a.down.Busy()})
 	})
-	mux.HandleFunc("GET /api/cover/{folder}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/cover/{folder}", func(w core.ResponseWriter, r *core.Request) {
 		b, err := a.lib().Cover(r.PathValue("folder"))
 		if err != nil {
-			http.NotFound(w, r)
+			core.HTTPNotFound(w, r)
 			return
 		}
 		w.Header().Set("Content-Type", "image/jpeg")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Write(b)
 	})
-	mux.HandleFunc("GET /api/book/{folder}/{file}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/book/{folder}/{file}", func(w core.ResponseWriter, r *core.Request) {
 		folder, file := r.PathValue("folder"), r.PathValue("file")
 		pages, err := a.lib().Pages(folder, file)
 		if err != nil {
-			fail(w, err.Error(), http.StatusNotFound)
+			fail(w, err.Error(), core.StatusNotFound)
 			return
 		}
 		send(w, map[string]any{"pages": len(pages), "page": a.shelf.Progress(folder)[file].Page})
 	})
-	mux.HandleFunc("GET /api/page/{folder}/{file}/{n}", func(w http.ResponseWriter, r *http.Request) {
-		n, _ := strconv.Atoi(r.PathValue("n"))
+	mux.HandleFunc("GET /api/page/{folder}/{file}/{n}", func(w core.ResponseWriter, r *core.Request) {
+		n, _ := core.Atoi(r.PathValue("n")).Value.(int)
 		b, typ, err := a.lib().Page(r.PathValue("folder"), r.PathValue("file"), n)
 		if err != nil {
-			fail(w, err.Error(), http.StatusNotFound)
+			fail(w, err.Error(), core.StatusNotFound)
 			return
 		}
 		w.Header().Set("Content-Type", typ)
 		w.Header().Set("Cache-Control", "max-age=3600")
 		w.Write(b)
 	})
-	mux.HandleFunc("POST /api/progress", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/progress", func(w core.ResponseWriter, r *core.Request) {
 		var p struct {
 			Folder, File string
 			Page, Pages  int
@@ -98,12 +94,12 @@ func (a *app) handler() http.Handler {
 			return
 		}
 		if res := a.shelf.SetPage(p.Folder, p.File, p.Page, p.Pages); !res.OK {
-			fail(w, res.Error(), http.StatusBadRequest)
+			fail(w, res.Error(), core.StatusBadRequest)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(core.StatusNoContent)
 	})
-	mux.HandleFunc("POST /api/open", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/open", func(w core.ResponseWriter, r *core.Request) {
 		var p struct{ Folder, File string }
 		if !read(w, r, &p) {
 			return
@@ -113,7 +109,9 @@ func (a *app) handler() http.Handler {
 		switch {
 		case p.Folder == "":
 			path = a.lib().Dir
-			err = os.MkdirAll(path, 0o755)
+			if r := core.MkdirAll(path, 0o755); !r.OK {
+				err = r.Err()
+			}
 		case p.File == "":
 			path, err = a.lib().Path(p.Folder)
 		default:
@@ -123,38 +121,39 @@ func (a *app) handler() http.Handler {
 			err = a.open(path)
 		}
 		if err != nil {
-			fail(w, err.Error(), http.StatusBadRequest)
+			fail(w, err.Error(), core.StatusBadRequest)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(core.StatusNoContent)
 	})
-	mux.HandleFunc("POST /api/browse", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/browse", func(w core.ResponseWriter, r *core.Request) {
 		var p struct{ URL string }
 		if !read(w, r, &p) {
 			return
 		}
-		u, err := url.Parse(p.URL)
-		if err != nil || u.Scheme != "https" || u.Host == "" {
-			fail(w, "only web links open in the browser", http.StatusBadRequest)
+		parsed := core.URLParse(p.URL)
+		u, _ := parsed.Value.(*core.URL)
+		if !parsed.OK || u.Scheme != "https" || u.Host == "" {
+			fail(w, "only web links open in the browser", core.StatusBadRequest)
 			return
 		}
 		if err := a.browse(u.String()); err != nil {
-			fail(w, err.Error(), http.StatusInternalServerError)
+			fail(w, err.Error(), core.StatusInternalServerError)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(core.StatusNoContent)
 	})
-	mux.HandleFunc("GET /api/dexcover/{id}/{file}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/dexcover/{id}/{file}", func(w core.ResponseWriter, r *core.Request) {
 		b, err := a.dex.Cover(r.Context(), r.PathValue("id"), r.PathValue("file"))
 		if err != nil {
-			http.NotFound(w, r)
+			core.HTTPNotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", http.DetectContentType(b))
+		w.Header().Set("Content-Type", core.HTTPDetectContentType(b))
 		w.Header().Set("Cache-Control", "max-age=86400")
 		w.Write(b)
 	})
-	mux.HandleFunc("GET /api/search", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/search", func(w core.ResponseWriter, r *core.Request) {
 		q := r.URL.Query().Get("q")
 		var found []mangadex.Manga
 		var err error
@@ -167,7 +166,7 @@ func (a *app) handler() http.Handler {
 			found, err = a.dex.Search(r.Context(), q, a.shelf.Settings().Language)
 		}
 		if err != nil {
-			fail(w, err.Error(), http.StatusBadGateway)
+			fail(w, err.Error(), core.StatusBadGateway)
 			return
 		}
 		if found == nil {
@@ -183,24 +182,24 @@ func (a *app) handler() http.Handler {
 		}
 		send(w, map[string]any{"results": found, "owned": owned, "language": a.shelf.Settings().Language})
 	})
-	mux.HandleFunc("POST /api/add", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/add", func(w core.ResponseWriter, r *core.Request) {
 		var m mangadex.Manga
 		if !read(w, r, &m) {
 			return
 		}
 		if mangadex.ID(m.ID) == "" || m.Title == "" {
-			fail(w, "that doesn't look like a MangaDex manga", http.StatusBadRequest)
+			fail(w, "that doesn't look like a MangaDex manga", core.StatusBadRequest)
 			return
 		}
 		m.ID = mangadex.ID(m.ID)
 		job, err := a.down.Add(m)
 		if err != nil {
-			fail(w, err.Error(), http.StatusBadRequest)
+			fail(w, err.Error(), core.StatusBadRequest)
 			return
 		}
 		send(w, job)
 	})
-	mux.HandleFunc("POST /api/update", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/update", func(w core.ResponseWriter, r *core.Request) {
 		var p struct{ Folder string } // "" = every series from MangaDex
 		if !read(w, r, &p) {
 			return
@@ -208,7 +207,7 @@ func (a *app) handler() http.Handler {
 		if p.Folder != "" {
 			job, err := a.down.Update(p.Folder)
 			if err != nil {
-				fail(w, err.Error(), http.StatusBadRequest)
+				fail(w, err.Error(), core.StatusBadRequest)
 				return
 			}
 			send(w, []downloader.Job{job})
@@ -225,56 +224,56 @@ func (a *app) handler() http.Handler {
 		}
 		send(w, jobs)
 	})
-	mux.HandleFunc("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/jobs", func(w core.ResponseWriter, r *core.Request) {
 		send(w, a.down.Jobs())
 	})
-	mux.HandleFunc("GET /api/jobs/{id}/log", func(w http.ResponseWriter, r *http.Request) {
-		id, _ := strconv.Atoi(r.PathValue("id"))
+	mux.HandleFunc("GET /api/jobs/{id}/log", func(w core.ResponseWriter, r *core.Request) {
+		id, _ := core.Atoi(r.PathValue("id")).Value.(int)
 		send(w, a.down.Log(id))
 	})
-	mux.HandleFunc("POST /api/jobs/{id}/cancel", func(w http.ResponseWriter, r *http.Request) {
-		id, _ := strconv.Atoi(r.PathValue("id"))
+	mux.HandleFunc("POST /api/jobs/{id}/cancel", func(w core.ResponseWriter, r *core.Request) {
+		id, _ := core.Atoi(r.PathValue("id")).Value.(int)
 		a.down.Cancel(id)
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(core.StatusNoContent)
 	})
-	mux.HandleFunc("GET /api/settings", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/settings", func(w core.ResponseWriter, r *core.Request) {
 		set := a.shelf.Settings()
 		send(w, map[string]any{"settings": set, "formats": shelf.Formats, "tool": downloader.FindTool(set.Tool, shelf.Dir()), "canFetch": downloader.CanFetch()})
 	})
-	mux.HandleFunc("POST /api/settings", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/settings", func(w core.ResponseWriter, r *core.Request) {
 		var set shelf.Settings
 		if !read(w, r, &set) {
 			return
 		}
 		if res := a.shelf.Save(set); !res.OK {
-			fail(w, res.Error(), http.StatusBadRequest)
+			fail(w, res.Error(), core.StatusBadRequest)
 			return
 		}
 		send(w, a.shelf.Settings())
 	})
-	mux.HandleFunc("POST /api/import", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/import", func(w core.ResponseWriter, r *core.Request) {
 		if a.pickBooks == nil {
-			fail(w, "no file picker here", http.StatusNotImplemented)
+			fail(w, "no file picker here", core.StatusNotImplemented)
 			return
 		}
 		paths, err := a.pickBooks()
 		if err != nil {
-			fail(w, err.Error(), http.StatusInternalServerError)
+			fail(w, err.Error(), core.StatusInternalServerError)
 			return
 		}
 		send(w, map[string]bool{"started": a.Import(paths)}) // false: she cancelled, or one's running
 	})
-	mux.HandleFunc("GET /api/imports", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/imports", func(w core.ResponseWriter, r *core.Request) {
 		send(w, a.imports.state())
 	})
-	mux.HandleFunc("POST /api/pick-folder", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/pick-folder", func(w core.ResponseWriter, r *core.Request) {
 		if a.pick == nil {
-			fail(w, "no folder picker here", http.StatusNotImplemented)
+			fail(w, "no folder picker here", core.StatusNotImplemented)
 			return
 		}
 		dir, err := a.pick("Where should the bookcase be?")
 		if err != nil {
-			fail(w, err.Error(), http.StatusInternalServerError)
+			fail(w, err.Error(), core.StatusInternalServerError)
 			return
 		}
 		send(w, map[string]string{"folder": dir}) // "" = she cancelled
@@ -286,20 +285,20 @@ func (a *app) handler() http.Handler {
 // Import copies dropped or picked files onto the shelf, in the background.
 func (a *app) Import(paths []string) bool { return a.imports.start(a.lib(), paths) }
 
-func send(w http.ResponseWriter, v any) {
+func send(w core.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(v)
+	core.JSONNewEncoder(w).Encode(v)
 }
 
-func fail(w http.ResponseWriter, msg string, code int) {
+func fail(w core.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	core.JSONNewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-func read(w http.ResponseWriter, r *http.Request, v any) bool {
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(v); err != nil {
-		fail(w, "bad request: "+err.Error(), http.StatusBadRequest)
+func read(w core.ResponseWriter, r *core.Request, v any) bool {
+	if err := core.JSONNewDecoder(core.HTTPMaxBytesReader(w, r.Body, 1<<20)).Decode(v); err != nil {
+		fail(w, "bad request: "+err.Error(), core.StatusBadRequest)
 		return false
 	}
 	return true

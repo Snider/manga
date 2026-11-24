@@ -24,7 +24,6 @@ package library
 
 import (
 	"archive/zip"
-	"time"
 
 	core "github.com/dappcore/go"
 	"github.com/dappcore/go-io/go/local"
@@ -63,7 +62,7 @@ type Info struct {
 	URL      string    `json:"url"`
 	Language string    `json:"language"`
 	Format   string    `json:"format"` // the mangadex-dl --save-as it was downloaded with
-	Added    time.Time `json:"added"`
+	Added    core.Time `json:"added"`
 }
 
 var formats = map[string]bool{".cbz": true, ".pdf": true, ".epub": true, ".cb7": true}
@@ -361,9 +360,6 @@ func imageType(name string) string {
 	return ""
 }
 
-// isControl is unicode.IsControl: the C0 and C1 control ranges.
-func isControl(r rune) bool { return r < 0x20 || (r >= 0x7f && r < 0xa0) }
-
 // FolderName makes a title safe as a folder name on Windows (and everywhere else).
 //
 //	library.FolderName(`Re:Zero / Season 2?`) // "Re-Zero - Season 2"
@@ -373,7 +369,7 @@ func FolderName(title string) string {
 		switch {
 		case core.ContainsRune(`<>:"/\|?*`, r):
 			b.WriteRune('-')
-		case isControl(r):
+		case core.IsControl(r):
 		default:
 			b.WriteRune(r)
 		}

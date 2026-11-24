@@ -17,9 +17,6 @@ package main
 
 import (
 	"embed"
-	"io/fs"
-	"log"
-	"os"
 
 	core "github.com/dappcore/go"
 	process "github.com/dappcore/go-process/go"
@@ -35,19 +32,19 @@ import (
 var frontend embed.FS
 
 func main() {
-	if len(os.Args) > 1 && !core.IsFlag(os.Args[1]) {
+	if len(core.Args()) > 1 && !core.IsFlag(core.Args()[1]) {
 		core.AttachParentConsole() // before anything prints: the command's output needs somewhere to go
 	}
-	if c := commands(os.Stdout); isCommand(c, os.Args[1:]) {
-		if r := c.Cli().Run(os.Args[1:]...); !r.OK {
-			log.Fatal(r.Error())
+	if c := commands(core.Stdout()); isCommand(c, core.Args()[1:]) {
+		if r := c.Cli().Run(core.Args()[1:]...); !r.OK {
+			fatal(r.Error())
 		}
 		return
 	}
 
 	sh, c := open()
 	defer sh.Close()
-	page, _ := fs.Sub(frontend, "frontend")
+	page := core.Sub(frontend, "frontend").Value.(core.FS) // the embedded folder: always there
 	a := &app{
 		shelf:  sh,
 		dex:    mangadex.New(),
@@ -85,7 +82,7 @@ func main() {
 	err := win.Run()
 	c.ServiceShutdown(core.Background()) // stops a download mid-way: "update" carries on from there
 	if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	}
 }
 
@@ -94,7 +91,7 @@ func main() {
 func open() (*shelf.Shelf, *core.Core) {
 	r := shelf.Open(shelf.DefaultPath())
 	if !r.OK {
-		log.Fatalf("can't open %s: %s", shelf.DefaultPath(), r.Error())
+		fatal(core.Sprintf("can't open %s: %s", shelf.DefaultPath(), r.Error()))
 	}
 	sh := r.Value.(*shelf.Shelf)
 	c := core.New(
@@ -104,7 +101,13 @@ func open() (*shelf.Shelf, *core.Core) {
 		core.WithServiceLock(),
 	)
 	if r := c.ServiceStartup(c.Context(), nil); !r.OK {
-		log.Fatal(r.Error())
+		fatal(r.Error())
 	}
 	return sh, c
+}
+
+// fatal reports what stopped Pinku from starting, and exits.
+func fatal(v any) {
+	core.Error(core.Sprintf("%v", v))
+	core.Exit(1)
 }

@@ -11,16 +11,7 @@
 package mangadex
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"regexp"
-	"sort"
-	"strings"
-	"time"
+	core "github.com/dappcore/go"
 )
 
 // Manga is one search result, flattened for the page.
@@ -49,51 +40,50 @@ func (m Manga) CoverURL() string {
 	return "https://uploads.mangadex.org/covers/" + m.ID + "/" + m.CoverFile + ".256.jpg"
 }
 
-var coverFile = regexp.MustCompile(`^[0-9a-f-]{36}\.(jpg|jpeg|png|gif|webp)$`)
+var coverFile = core.MustRegex(`^[0-9a-f-]{36}\.(jpg|jpeg|png|gif|webp)$`)
 
 // Cover fetches a small cover image (the page shows covers through the app,
 // not straight from MangaDex, so the window never fetches from elsewhere).
-func (c *Client) Cover(ctx context.Context, id, file string) ([]byte, error) {
+func (c *Client) Cover(ctx core.Context, id, file string) ([]byte, error) {
 	if ID(id) != id || !coverFile.MatchString(file) {
-		return nil, fmt.Errorf("not a MangaDex cover")
+		return nil, core.E("mangadex.Cover", "not a MangaDex cover", nil)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.UploadsURL+"/covers/"+id+"/"+file+".256.jpg", nil)
+	resp, err := c.do(ctx, c.UploadsURL+"/covers/"+id+"/"+file+".256.jpg")
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", c.Agent)
-	resp, err := c.HTTP.Do(req)
-	if err != nil {
-		return nil, err
+	if resp.StatusCode != core.StatusOK {
+		resp.Body.Close()
+		return nil, core.E("mangadex.Cover", "cover: "+resp.Status, nil)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("cover: %s", resp.Status)
+	got := core.ReadAll(core.LimitReader(resp.Body, 4<<20)) // closes the body
+	if !got.OK {
+		return nil, core.E("mangadex.Cover", "read the cover", got.Err())
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	return []byte(got.Value.(string)), nil
 }
 
 // Client talks to the MangaDex API.
 type Client struct {
 	BaseURL    string // https://api.mangadex.org (tests point these elsewhere)
 	UploadsURL string // https://uploads.mangadex.org
-	HTTP       *http.Client
+	HTTP       *core.HTTPClient
 	Agent      string // MangaDex asks clients to say who they are
 }
 
 // New is a Client for the real API.
 func New() *Client {
-	return &Client{BaseURL: "https://api.mangadex.org", UploadsURL: "https://uploads.mangadex.org", HTTP: &http.Client{Timeout: 20 * time.Second}, Agent: "Pinku/0.4 (+https://github.com/Snider/manga)"}
+	return &Client{BaseURL: "https://api.mangadex.org", UploadsURL: "https://uploads.mangadex.org", HTTP: &core.HTTPClient{Timeout: 20 * core.Second}, Agent: "Pinku/0.4 (+https://github.com/Snider/manga)"}
 }
 
 // Search finds manga by title, best match first. lang ("en") only orders the
 // results: ones translated into it come first. Adult titles are left out.
-func (c *Client) Search(ctx context.Context, title, lang string) ([]Manga, error) {
-	title = strings.TrimSpace(title)
+func (c *Client) Search(ctx core.Context, title, lang string) ([]Manga, error) {
+	title = core.Trim(title)
 	if title == "" {
 		return nil, nil
 	}
-	q := url.Values{}
+	q := core.URLValues{}
 	q.Set("title", title)
 	q.Set("limit", "24")
 	q.Add("includes[]", "cover_art")
@@ -115,17 +105,27 @@ func (c *Client) Search(ctx context.Context, title, lang string) ([]Manga, error
 	for _, it := range body.Data {
 		out = append(out, it.flatten())
 	}
-	if lang != "" {
-		sort.SliceStable(out, func(i, j int) bool { return has(out[i].Languages, lang) && !has(out[j].Languages, lang) })
+	if lang == "" {
+		return out, nil
 	}
-	return out, nil
+	// Hers first, each group keeping MangaDex's relevance order.
+	theirs := make([]Manga, 0, len(out))
+	hers := out[:0:0]
+	for _, m := range out {
+		if has(m.Languages, lang) {
+			hers = append(hers, m)
+		} else {
+			theirs = append(theirs, m)
+		}
+	}
+	return append(hers, theirs...), nil
 }
 
 // Get is one manga by its id (or its MangaDex URL).
-func (c *Client) Get(ctx context.Context, idOrURL string) (Manga, error) {
+func (c *Client) Get(ctx core.Context, idOrURL string) (Manga, error) {
 	id := ID(idOrURL)
 	if id == "" {
-		return Manga{}, fmt.Errorf("that isn't a MangaDex link or id: %q", idOrURL)
+		return Manga{}, core.E("mangadex.Get", core.Sprintf("that isn't a MangaDex link or id: %q", idOrURL), nil)
 	}
 	var body struct {
 		Data item `json:"data"`
@@ -136,38 +136,48 @@ func (c *Client) Get(ctx context.Context, idOrURL string) (Manga, error) {
 	return body.Data.flatten(), nil
 }
 
-var idPattern = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+var idPattern = core.MustRegex(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
 // ID pulls the manga id out of a MangaDex link (or returns a bare id).
 //
 //	mangadex.ID("https://mangadex.org/title/cbe84ea7-2992-4db0-b4ef-d042124f48c8/uso") // "cbe84ea7-…"
 func ID(s string) string {
-	return idPattern.FindString(strings.ToLower(s))
+	return idPattern.FindString(core.Lower(s))
 }
 
 // URL is the MangaDex page for an id.
 func URL(id string) string { return "https://mangadex.org/title/" + id }
 
-func (c *Client) get(ctx context.Context, path string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+path, nil)
+// do sends a GET with Pinku's User-Agent (MangaDex asks clients to say who they are).
+func (c *Client) do(ctx core.Context, target string) (*core.Response, error) {
+	req := core.NewHTTPRequestContext(ctx, "GET", target, nil)
+	if !req.OK {
+		return nil, req.Err()
+	}
+	r := req.Value.(*core.Request)
+	r.Header.Set("User-Agent", c.Agent)
+	resp, err := c.HTTP.Do(r)
+	if err != nil {
+		return nil, core.E("mangadex", "couldn't reach MangaDex", err)
+	}
+	return resp, nil
+}
+
+func (c *Client) get(ctx core.Context, path string, out any) error {
+	resp, err := c.do(ctx, c.BaseURL+path)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", c.Agent)
-	resp, err := c.HTTP.Do(req)
-	if err != nil {
-		return fmt.Errorf("couldn't reach MangaDex: %w", err)
-	}
 	defer resp.Body.Close()
 	switch {
-	case resp.StatusCode == http.StatusNotFound:
-		return fmt.Errorf("MangaDex doesn't have that one")
-	case resp.StatusCode == http.StatusTooManyRequests:
-		return fmt.Errorf("MangaDex says slow down: try again in a minute")
-	case resp.StatusCode != http.StatusOK:
-		return fmt.Errorf("MangaDex answered %s", resp.Status)
+	case resp.StatusCode == core.StatusNotFound:
+		return core.E("mangadex", "MangaDex doesn't have that one", nil)
+	case resp.StatusCode == core.StatusTooManyRequests:
+		return core.E("mangadex", "MangaDex says slow down: try again in a minute", nil)
+	case resp.StatusCode != core.StatusOK:
+		return core.E("mangadex", "MangaDex answered "+resp.Status, nil)
 	}
-	return json.NewDecoder(http.MaxBytesReader(nil, resp.Body, 8<<20)).Decode(out)
+	return core.JSONNewDecoder(core.LimitReader(resp.Body, 8<<20)).Decode(out)
 }
 
 type item struct {
@@ -221,8 +231,8 @@ func (it item) flatten() Manga {
 	if m.Description == "" {
 		m.Description = first(a.Description)
 	}
-	if i := strings.Index(m.Description, "\n---"); i > 0 { // the links/credits block MangaDex descriptions end with
-		m.Description = strings.TrimSpace(m.Description[:i])
+	if i := core.Index(m.Description, "\n---"); i > 0 { // the links/credits block MangaDex descriptions end with
+		m.Description = core.Trim(m.Description[:i])
 	}
 	for _, t := range a.Tags {
 		if t.Attributes.Group == "genre" || t.Attributes.Group == "theme" {
@@ -231,7 +241,7 @@ func (it item) flatten() Manga {
 			}
 		}
 	}
-	sort.Strings(m.Tags)
+	core.SliceSort(m.Tags)
 	for _, r := range it.Relationships {
 		switch r.Type {
 		case "cover_art":
@@ -263,7 +273,7 @@ func first(m map[string]string) string {
 	for k := range m {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	core.SliceSort(keys)
 	for _, k := range keys {
 		if m[k] != "" {
 			return m[k]

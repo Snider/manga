@@ -12,8 +12,8 @@ github.com/apapsch/go-jsonmerge/v2 v2.0.0/go.mod h1:lvDnEdqiQrp0O42VQGgmlKpxL1AP
 github.com/bmatcuk/doublestar v1.1.1/go.mod h1:UD6OnuiIn0yFxxA2le/rnRU1G4RaI4UvFv1sNto9p6w=
 github.com/coder/websocket v1.8.14 h1:9L0p0iKiNOibykf283eHkKUHHrpG7f65OE3BhhO7v9g=
 github.com/coder/websocket v1.8.14/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=
-github.com/dappcore/go v0.18.1 h1:LD7PariJ2Hgw6HSPeKA5PLKJ5RX6XZMSfIb2/XDt14c=
-github.com/dappcore/go v0.18.1/go.mod h1:0wbxM1oMhcDWzFXP8iOuC90oW8/xt4mqJjElZ+cOVWI=
+github.com/dappcore/go v0.19.0 h1:2xhfsAs7Z5DMgAmhgzMbmZLp9nPuv3sVtYp9zNXKKWE=
+github.com/dappcore/go v0.19.0/go.mod h1:0wbxM1oMhcDWzFXP8iOuC90oW8/xt4mqJjElZ+cOVWI=
 github.com/dappcore/go-io/go v0.16.0 h1:nVv/kAyvl0bsTNMCAd978yhb0BAP5hUauIeZ1DVmHJg=
 github.com/dappcore/go-io/go v0.16.0/go.mod h1:JQ6glCamapU04cabaEdjqPwpj1EgNGA/j+5Y/nYA5QY=
 github.com/dappcore/go-process/go v0.17.1 h1:NVhRHORFBqL3lBJ94tueDkdRC+fuNXD86XXItjvqkHE=

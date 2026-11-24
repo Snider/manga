@@ -3,7 +3,7 @@
 package main
 
 import (
-	"sync"
+	core "github.com/dappcore/go"
 
 	"manga/library"
 )
@@ -11,7 +11,7 @@ import (
 // importer runs one import at a time (files dropped on the window, or picked
 // with "Add files…") and keeps the last result for the page to show.
 type importer struct {
-	mu   sync.Mutex
+	mu   core.Mutex
 	busy bool
 	n    int // counts imports, so the page can tell a new result from an old one
 	last library.Imported

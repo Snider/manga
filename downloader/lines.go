@@ -3,8 +3,7 @@
 package downloader
 
 import (
-	"regexp"
-	"strings"
+	core "github.com/dappcore/go"
 )
 
 // Line is what one line of mangadex-dl's log means for the page.
@@ -14,9 +13,8 @@ type Line struct {
 }
 
 var (
-	pageLine   = regexp.MustCompile(`^\[INFO\] Downloading (?:\[[^\]]*\] )?(.*?) page (\d+)$`)
-	volumeLine = regexp.MustCompile(`^\[INFO\] (.*) has finished download`)
-	shortVol   = strings.NewReplacer("Volume. ", "Vol. ", "Chapter. ", "Ch. ")
+	pageLine   = core.MustRegex(`^\[INFO\] Downloading (?:\[[^\]]*\] )?(.*?) page (\d+)$`)
+	volumeLine = core.MustRegex(`^\[INFO\] (.*) has finished download`)
 )
 
 // Parse reads one line of mangadex-dl's log (it logs to stderr, one line per
@@ -26,17 +24,17 @@ var (
 //	Parse(`[INFO] Downloading [group] Volume. 1 Chapter. 1 page 2`) // {page, "Vol. 1 Ch. 1 · page 2"}
 //	Parse(`[ERROR] Manga 'X' with en language has no chapters`)      // {error, …}
 func Parse(raw string) Line {
-	s := strings.TrimSpace(raw)
+	s := core.Trim(raw)
 	switch {
-	case strings.HasPrefix(s, "[ERROR]"), strings.HasPrefix(s, "[CRITICAL]"):
-		return Line{Kind: "error", Text: friendly(strings.TrimSpace(s[strings.Index(s, "]")+1:]))}
-	case strings.HasPrefix(s, "Traceback (most recent call last)"):
+	case core.HasPrefix(s, "[ERROR]"), core.HasPrefix(s, "[CRITICAL]"):
+		return Line{Kind: "error", Text: friendly(core.Trim(s[core.Index(s, "]")+1:]))}
+	case core.HasPrefix(s, "Traceback (most recent call last)"):
 		return Line{Kind: "error", Text: "mangadex-dl crashed (the details are in the log)"}
-	case strings.HasPrefix(s, "[INFO] Download finished for manga"):
+	case core.HasPrefix(s, "[INFO] Download finished for manga"):
 		return Line{Kind: "done"}
 	}
 	if m := pageLine.FindStringSubmatch(s); m != nil {
-		return Line{Kind: "page", Text: shortVol.Replace(m[1]) + " · page " + m[2]}
+		return Line{Kind: "page", Text: shortVol(m[1]) + " · page " + m[2]}
 	}
 	if m := volumeLine.FindStringSubmatch(s); m != nil {
 		return Line{Kind: "volume", Text: m[1]}
@@ -46,8 +44,13 @@ func Parse(raw string) Line {
 
 // friendly rewords the errors she's likely to meet.
 func friendly(msg string) string {
-	if strings.Contains(msg, "has no chapters") {
+	if core.Contains(msg, "has no chapters") {
 		return "MangaDex has no chapters of this in your language. Popular licensed series are often taken down there: try another language in Settings, or another series."
 	}
 	return msg
+}
+
+// shortVol: "Volume. 1" → "Vol. 1", "Chapter. 3" → "Ch. 3".
+func shortVol(s string) string {
+	return core.Replace(core.Replace(s, "Volume. ", "Vol. "), "Chapter. ", "Ch. ")
 }

@@ -14,13 +14,6 @@
 package downloader
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
-	"sync"
-	"time"
-
 	core "github.com/dappcore/go"
 	process "github.com/dappcore/go-process/go"
 
@@ -45,8 +38,8 @@ type Job struct {
 	Volumes  int       `json:"volumes"`
 	Pages    int       `json:"pages"`
 	Error    string    `json:"error,omitempty"`
-	Started  time.Time `json:"started"`
-	Finished time.Time `json:"finished"`
+	Started  core.Time `json:"started"`
+	Finished core.Time `json:"finished"`
 	Log      []string  `json:"-"`
 
 	url, format, language string
@@ -59,7 +52,7 @@ type ShelfChanged struct{ Folder string }
 // Service is the download queue.
 type Service struct {
 	*core.ServiceRuntime[Options]
-	mu      sync.Mutex
+	mu      core.Mutex
 	jobs    []*Job
 	next    int
 	wake    chan struct{}
@@ -124,14 +117,14 @@ func (s *Service) Add(m mangadex.Manga) (Job, error) {
 		if err != nil {
 			return Job{}, err
 		}
-		if _, err := os.Stat(dir); err != nil {
+		if !core.Stat(dir).OK {
 			break // free
 		}
-		folder = base + " (" + strconv.Itoa(n) + ")"
+		folder = base + " (" + core.Itoa(n) + ")"
 	}
-	info := library.Info{MangaDex: m.ID, Title: m.Title, URL: mangadex.URL(m.ID), Language: set.Language, Format: set.Format, Added: time.Now()}
+	info := library.Info{MangaDex: m.ID, Title: m.Title, URL: mangadex.URL(m.ID), Language: set.Language, Format: set.Format, Added: core.Now()}
 	if err := lib.WriteInfo(folder, info); err != nil {
-		return Job{}, fmt.Errorf("couldn't make the folder for %s: %w", m.Title, err)
+		return Job{}, core.E("downloader.Add", "couldn't make the folder for "+m.Title, err)
 	}
 	return s.queue(folder, info)
 }
@@ -140,7 +133,7 @@ func (s *Service) Add(m mangadex.Manga) (Job, error) {
 func (s *Service) Update(folder string) (Job, error) {
 	info, err := library.Library{Dir: s.Options().Settings().Library}.Info(folder)
 	if err != nil {
-		return Job{}, fmt.Errorf("%s wasn't downloaded from MangaDex, so there's nothing to check", folder)
+		return Job{}, core.E("downloader.Update", folder+" wasn't downloaded from MangaDex, so there's nothing to check", nil)
 	}
 	return s.queue(folder, info)
 }
@@ -151,7 +144,7 @@ func (s *Service) queue(folder string, info library.Info) (Job, error) {
 	// rebuilt from the id, the format and language must be ones we offer.
 	id := mangadex.ID(info.MangaDex)
 	if id == "" || id != info.MangaDex {
-		return Job{}, fmt.Errorf("%s/manga.json doesn't name a MangaDex manga", folder)
+		return Job{}, core.E("downloader.Update", folder+"/manga.json doesn't name a MangaDex manga", nil)
 	}
 	if shelf.Formats[info.Format] == "" {
 		info.Format = s.Options().Settings().Format
@@ -222,7 +215,7 @@ func (s *Service) Cancel(id int) bool {
 		}
 		switch j.State {
 		case "queued":
-			j.State, j.Finished = "cancelled", time.Now()
+			j.State, j.Finished = "cancelled", core.Now()
 			return true
 		case "running":
 			j.State = "cancelled"
@@ -240,7 +233,7 @@ func (s *Service) take() *Job {
 	defer s.mu.Unlock()
 	for _, j := range s.jobs {
 		if j.State == "queued" {
-			j.State, j.Started = "running", time.Now()
+			j.State, j.Started = "running", core.Now()
 			return j
 		}
 	}
@@ -273,14 +266,14 @@ func (s *Service) run(ctx core.Context, j *Job) {
 		s.finish(j, err.Error())
 		return
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		s.finish(j, err.Error())
+	if r := core.MkdirAll(dir, 0o755); !r.OK {
+		s.finish(j, r.Error())
 		return
 	}
 	r := s.procs.StartWithOptions(ctx, process.RunOptions{
 		Command: tool,
 		Args:    Args(j.url, dir, j.format, j.language),
-		Dir:     filepath.Dir(tool),
+		Dir:     core.PathDir(tool),
 		Env:     []string{"PYTHONIOENCODING=utf-8", "PYTHONUTF8=1"}, // titles in any script, piped on Windows
 	})
 	if !r.OK {
@@ -309,7 +302,7 @@ func (s *Service) run(ctx core.Context, j *Job) {
 	case failed != "":
 		s.finish(j, failed)
 	case info.ExitCode != 0:
-		s.finish(j, fmt.Sprintf("mangadex-dl stopped (exit %d): see the log", info.ExitCode))
+		s.finish(j, core.Sprintf("mangadex-dl stopped (exit %d): see the log", info.ExitCode))
 	default:
 		s.finish(j, "")
 	}
@@ -363,7 +356,7 @@ func (s *Service) finish(j *Job, failure string) {
 	default:
 		j.State, j.Error = "done", ""
 	}
-	j.Now, j.Finished, j.proc = "", time.Now(), nil
+	j.Now, j.Finished, j.proc = "", core.Now(), nil
 	s.mu.Unlock()
 	s.Core().ACTION(ShelfChanged{Folder: j.Folder})
 }

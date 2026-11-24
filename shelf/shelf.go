@@ -13,14 +13,6 @@
 package shelf
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"time"
-
 	core "github.com/dappcore/go"
 	store "github.com/dappcore/go-store/go"
 )
@@ -39,7 +31,7 @@ var Formats = map[string]string{
 	"cbz":        "One file per chapter",
 }
 
-var language = regexp.MustCompile(`^[a-z]{2,3}(-[a-z]{2,4})?$`)
+var language = core.MustRegex(`^[a-z]{2,3}(-[a-z]{2,4})?$`)
 
 // ValidLanguage: a MangaDex language code (en, pt-br, es-la, ja-ro).
 func ValidLanguage(code string) bool { return language.MatchString(code) }
@@ -63,46 +55,43 @@ type Shelf struct {
 // It was called MangaShelf before the app had its name; that folder is moved
 // over the first time, so her settings and where she was reading come along.
 func Dir() string {
-	d, err := os.UserConfigDir()
-	if err != nil {
-		d = os.TempDir()
+	d := core.TempDir()
+	if r := core.UserConfigDir(); r.OK {
+		d = r.Value.(string)
 	}
-	return movedFrom(filepath.Join(d, "MangaShelf"), filepath.Join(d, "Pinku"))
+	return movedFrom(core.PathJoin(d, "MangaShelf"), core.PathJoin(d, "Pinku"))
 }
 
 // movedFrom renames old to dir if only old exists, and answers the folder to
 // use: old again if the rename couldn't happen (better than starting empty).
 func movedFrom(old, dir string) string {
-	if _, err := os.Stat(dir); err == nil {
+	if core.Stat(dir).OK || !core.Stat(old).OK {
 		return dir
 	}
-	if _, err := os.Stat(old); err != nil {
-		return dir
-	}
-	if os.Rename(old, dir) != nil {
+	if !core.Rename(old, dir).OK {
 		return old
 	}
 	return dir
 }
 
 // DefaultPath is where the store lives.
-func DefaultPath() string { return filepath.Join(Dir(), "shelf.db") }
+func DefaultPath() string { return core.PathJoin(Dir(), "shelf.db") }
 
 // DefaultLibrary is Documents\Manga: somewhere she'll find it in Explorer.
 func DefaultLibrary() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join(Dir(), "Manga")
+	home := core.UserHomeDir()
+	if !home.OK {
+		return core.PathJoin(Dir(), "Manga")
 	}
-	return filepath.Join(home, "Documents", "Manga")
+	return core.PathJoin(home.Value.(string), "Documents", "Manga")
 }
 
 // Open opens (or creates) the store at path.
 func Open(path string) core.Result {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return core.Fail(core.E("shelf.Open", "making "+filepath.Dir(path), err))
+	if r := core.MkdirAll(core.PathDir(path), 0o755); !r.OK {
+		return core.Fail(core.E("shelf.Open", "making "+core.PathDir(path), r.Err()))
 	}
-	r := store.New(path, store.WithWorkspaceStateDirectory(filepath.Join(filepath.Dir(path), "state")))
+	r := store.New(path, store.WithWorkspaceStateDirectory(core.PathJoin(core.PathDir(path), "state")))
 	if !r.OK {
 		return r
 	}
@@ -134,7 +123,7 @@ func (s *Shelf) Settings() Settings {
 
 // Save checks and stores the settings.
 func (s *Shelf) Save(v Settings) core.Result {
-	if v.Library == "" || !filepath.IsAbs(v.Library) {
+	if v.Library == "" || !core.PathIsAbs(v.Library) {
 		return core.Fail(core.E("shelf.Save", "the bookcase needs a full folder path", nil))
 	}
 	if Formats[v.Format] == "" {
@@ -154,9 +143,9 @@ func (s *Shelf) Save(v Settings) core.Result {
 // SetPage remembers where she is in a book.
 func (s *Shelf) SetPage(folder, file string, page, pages int) core.Result {
 	if page < 0 || pages <= 0 || page >= pages {
-		return core.Fail(core.E("shelf.SetPage", fmt.Sprintf("page %d of %d", page, pages), nil))
+		return core.Fail(core.E("shelf.SetPage", core.Sprintf("page %d of %d", page, pages), nil))
 	}
-	b, _ := json.Marshal(Progress{Page: page, Pages: pages, At: time.Now().Unix()})
+	b := core.JSONMarshal(Progress{Page: page, Pages: pages, At: core.UnixNow()}).Bytes()
 	return s.db.Set("progress:"+folder, file, string(b))
 }
 
@@ -169,7 +158,7 @@ func (s *Shelf) Progress(folder string) map[string]Progress {
 	}
 	for file, raw := range all {
 		var p Progress
-		if json.Unmarshal([]byte(raw), &p) == nil {
+		if core.JSONUnmarshalString(raw, &p).OK {
 			out[file] = p
 		}
 	}
@@ -177,16 +166,16 @@ func (s *Shelf) Progress(folder string) map[string]Progress {
 }
 
 // Checked remembers when a series last looked for new chapters.
-func (s *Shelf) Checked(folder string, at time.Time) core.Result {
-	return s.db.Set("checked", folder, strconv.FormatInt(at.Unix(), 10))
+func (s *Shelf) Checked(folder string, at core.Time) core.Result {
+	return s.db.Set("checked", folder, core.FormatInt(at.Unix(), 10))
 }
 
 // LastChecked is when a series last looked for new chapters (zero if never).
-func (s *Shelf) LastChecked(folder string) time.Time {
+func (s *Shelf) LastChecked(folder string) core.Time {
 	v, r := s.db.Get("checked", folder)
 	if !r.OK {
-		return time.Time{}
+		return core.Time{}
 	}
-	n, _ := strconv.ParseInt(v, 10, 64)
-	return time.Unix(n, 0)
+	n, _ := core.ParseInt(v, 10, 64).Value.(int64)
+	return core.Unix(n, 0)
 }

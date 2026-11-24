@@ -3,12 +3,6 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"strings"
-	"time"
-
 	core "github.com/dappcore/go"
 
 	"manga/downloader"
@@ -18,10 +12,10 @@ import (
 )
 
 // commands is Pinku without the window, through Core's command tree.
-func commands(out io.Writer) *core.Core {
+func commands(out core.Writer) *core.Core {
 	c := core.New(core.WithOption("name", "pinku"), core.WithCli())
 	c.Command("search", core.Command{Description: "search MangaDex: pinku search frieren", Action: func(o core.Options) core.Result {
-		return search(out, strings.Join(o.Args(), " "))
+		return search(out, core.Join(" ", o.Args()...))
 	}})
 	c.Command("get", core.Command{Description: "download a series onto the shelf: pinku get <MangaDex link>", Action: func(o core.Options) core.Result {
 		return get(out, o.String("_arg"))
@@ -40,28 +34,28 @@ func isCommand(c *core.Core, args []string) bool {
 	return len(args) > 0 && !core.IsFlag(args[0]) && c.Command(args[0]).OK
 }
 
-func search(out io.Writer, q string) core.Result {
-	if strings.TrimSpace(q) == "" {
+func search(out core.Writer, q string) core.Result {
+	if core.Trim(q) == "" {
 		return core.Fail(core.E("pinku.search", "search for what? pinku search frieren", nil))
 	}
-	found, err := mangadex.New().Search(context.Background(), q, "en")
+	found, err := mangadex.New().Search(core.Background(), q, "en")
 	if err != nil {
 		return core.Fail(core.E("pinku.search", "searching", err))
 	}
 	if len(found) == 0 {
-		fmt.Fprintf(out, "nothing on MangaDex called %q\n", q)
+		core.Print(out, "nothing on MangaDex called %q", q)
 	}
 	for _, m := range found {
-		fmt.Fprintf(out, "%s  (%s%s)  %s\n", m.Title, m.Status, year(m.Year), m.URL)
+		core.Print(out, "%s  (%s%s)  %s", m.Title, m.Status, year(m.Year), m.URL)
 	}
 	return core.Ok(len(found))
 }
 
-func get(out io.Writer, link string) core.Result {
+func get(out core.Writer, link string) core.Result {
 	if mangadex.ID(link) == "" {
 		return core.Fail(core.E("pinku.get", "which one? pinku get <MangaDex link>", nil))
 	}
-	m, err := mangadex.New().Get(context.Background(), link)
+	m, err := mangadex.New().Get(core.Background(), link)
 	if err != nil {
 		return core.Fail(core.E("pinku.get", "asking MangaDex", err))
 	}
@@ -71,7 +65,7 @@ func get(out io.Writer, link string) core.Result {
 	})
 }
 
-func update(out io.Writer, folder string) core.Result {
+func update(out core.Writer, folder string) core.Result {
 	return queueAndWait(out, func(d *downloader.Service, sh *shelf.Shelf) ([]downloader.Job, error) {
 		if folder != "" {
 			j, err := d.Update(folder)
@@ -91,7 +85,7 @@ func update(out io.Writer, folder string) core.Result {
 }
 
 // queueAndWait queues downloads and prints how they go until they're done.
-func queueAndWait(out io.Writer, queue func(*downloader.Service, *shelf.Shelf) ([]downloader.Job, error)) core.Result {
+func queueAndWait(out core.Writer, queue func(*downloader.Service, *shelf.Shelf) ([]downloader.Job, error)) core.Result {
 	sh, c := open()
 	defer sh.Close()
 	defer c.ServiceShutdown(core.Background())
@@ -101,7 +95,7 @@ func queueAndWait(out io.Writer, queue func(*downloader.Service, *shelf.Shelf) (
 		return core.Fail(core.E("pinku", err.Error(), nil))
 	}
 	if len(jobs) == 0 {
-		fmt.Fprintln(out, "nothing from MangaDex on the shelf to update")
+		core.Print(out, "%s", "nothing from MangaDex on the shelf to update")
 		return core.Ok(0)
 	}
 	last := map[int]string{}
@@ -116,13 +110,13 @@ func queueAndWait(out io.Writer, queue func(*downloader.Service, *shelf.Shelf) (
 			}
 			if last[j.ID] != line {
 				last[j.ID] = line
-				fmt.Fprintf(out, "%s · %s\n", j.Title, line)
+				core.Print(out, "%s · %s", j.Title, line)
 			}
 		}
 		if !d.Busy() {
 			break
 		}
-		time.Sleep(500 * time.Millisecond)
+		core.Sleep(500 * core.Millisecond)
 	}
 	failed := 0
 	for _, j := range d.Jobs() {
@@ -131,12 +125,12 @@ func queueAndWait(out io.Writer, queue func(*downloader.Service, *shelf.Shelf) (
 		}
 	}
 	if failed > 0 {
-		return core.Fail(core.E("pinku", fmt.Sprintf("%d of %d didn't download", failed, len(jobs)), nil))
+		return core.Fail(core.E("pinku", core.Sprintf("%d of %d didn't download", failed, len(jobs)), nil))
 	}
 	return core.Ok(len(jobs))
 }
 
-func showShelf(out io.Writer) core.Result {
+func showShelf(out core.Writer) core.Result {
 	r := shelf.Open(shelf.DefaultPath())
 	if !r.OK {
 		return r
@@ -148,9 +142,9 @@ func showShelf(out io.Writer) core.Result {
 	if err != nil {
 		return core.Fail(core.E("pinku.shelf", "reading "+lib.Dir, err))
 	}
-	fmt.Fprintln(out, lib.Dir)
+	core.Print(out, "%s", lib.Dir)
 	if len(series) == 0 {
-		fmt.Fprintln(out, "  (empty: pinku search <title>, then pinku get <link>)")
+		core.Print(out, "%s", "  (empty: pinku search <title>, then pinku get <link>)")
 	}
 	for _, s := range series {
 		read := 0
@@ -160,7 +154,7 @@ func showShelf(out io.Writer) core.Result {
 				read++
 			}
 		}
-		fmt.Fprintf(out, "  %-40s %3d books, %d read\n", s.Title, len(s.Books), read)
+		core.Print(out, "  %-40s %3d books, %d read", s.Title, len(s.Books), read)
 	}
 	return core.Ok(len(series))
 }
@@ -169,5 +163,5 @@ func year(y int) string {
 	if y == 0 {
 		return ""
 	}
-	return fmt.Sprintf(", %d", y)
+	return core.Sprintf(", %d", y)
 }

@@ -95,15 +95,7 @@ func (l Library) Import(paths []string) Imported {
 // IsBook: a file the shelf shows (.cbz, .pdf, .epub, .cb7).
 func IsBook(path string) bool { return formats[core.Lower(core.PathExt(path))] }
 
-var volumeTail = mustRegex(`(?i)[\s._-]*[\(\[]?(?:\b(?:v|vol|volume|c|ch|chap|chapter|t|tome|book)\.?|#)\s*\d+.*$`)
-
-func mustRegex(pattern string) *core.Regexp {
-	r := core.Regex(pattern)
-	if !r.OK {
-		panic(r.Error()) // a typo in the pattern above: caught by the tests
-	}
-	return r.Value.(*core.Regexp)
-}
+var volumeTail = core.MustRegex(`(?i)[\s._-]*[\(\[]?(?:\b(?:v|vol|volume|c|ch|chap|chapter|t|tome|book)\.?|#)\s*\d+.*$`)
 
 // SeriesOf names the series a dropped book belongs to: ComicInfo.xml's
 // <Series> if it's a .cbz that has one, else the file name without its
