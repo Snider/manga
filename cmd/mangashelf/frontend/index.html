@@ -7,7 +7,7 @@
   <title>Manga Shelf</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-file-drop-target>
   <header class="top">
     <div class="brand">📚 Manga Shelf</div>
     <nav>
@@ -28,6 +28,7 @@
           <option value="reading">Reading now</option>
         </select>
         <button id="update-all" class="ghost" title="Ask MangaDex for new chapters of everything">Check for new chapters</button>
+        <button id="add-files" class="ghost" title="Or drag .cbz files and folders onto the window">Add files…</button>
         <button id="open-library" class="ghost">Open folder</button>
       </div>
       <div id="continue" class="continue" hidden>
@@ -38,7 +39,8 @@
       <div id="empty" class="empty" hidden>
         <p>The bookcase is empty.</p>
         <p><button class="primary" data-go="find">Find some manga</button></p>
-        <p class="dim">Or copy folders of .cbz files into <a href="#" id="empty-folder"></a>: each folder is a series.</p>
+        <p class="dim">Or drag manga you already have (.cbz files, or folders of them) onto this window.</p>
+        <p class="dim">They're copied into <a href="#" id="empty-folder"></a>, one folder per series.</p>
       </div>
     </section>
 
@@ -125,6 +127,8 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
+  <div class="drop-hint">Drop to put it on the shelf</div>
+  <script type="module" src="/wails/runtime.js"></script><!-- the window's own: file drops -->
   <script src="app.js"></script>
 </body>
 </html>

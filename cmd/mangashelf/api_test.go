@@ -170,6 +170,40 @@ func TestAPIRefusesNonsense(t *testing.T) {
 	_ = a
 }
 
+func TestImportThroughTheAPI(t *testing.T) {
+	lib := seed(t)
+	a, srv := testApp(t, lib)
+	src := filepath.Join(t.TempDir(), "Berserk v01.cbz")
+	f, _ := os.Create(src)
+	z := zip.NewWriter(f)
+	w, _ := z.Create("001.jpg")
+	w.Write([]byte("page"))
+	z.Close()
+	f.Close()
+	if !a.Import([]string{src}) {
+		t.Fatal("import didn't start")
+	}
+	var st importState
+	for i := 0; i < 100; i++ {
+		fetch(t, srv.URL+"/api/imports", &st)
+		if !st.Busy && st.N == 1 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if st.N != 1 || len(st.Result.Added) != 1 || st.Result.Series[0] != "Berserk" {
+		t.Fatalf("import: %+v", st)
+	}
+	var sh struct{ Series []struct{ Folder string } }
+	fetch(t, srv.URL+"/api/shelf", &sh)
+	if len(sh.Series) != 2 {
+		t.Errorf("shelf after import: %+v", sh)
+	}
+	if a.Import(nil) {
+		t.Error("importing nothing shouldn't start")
+	}
+}
+
 // TestPreview serves the page with a real shelf for a look in a browser:
 //
 //	MANGASHELF_PREVIEW=~/Documents/Manga go test ./cmd/mangashelf -run Preview -timeout 0

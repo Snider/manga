@@ -24,6 +24,7 @@ import (
 	core "github.com/dappcore/go"
 	process "github.com/dappcore/go-process/go"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"manga/downloader"
 	"manga/mangadex"
@@ -54,6 +55,10 @@ func main() {
 		assets: application.BundledAssetFileServer(page),
 		open:   func(path string) error { return application.Get().Browser.OpenFile(path) },
 		browse: func(url string) error { return application.Get().Browser.OpenURL(url) },
+		pickBooks: func() ([]string, error) {
+			return application.Get().Dialog.OpenFile().CanChooseFiles(true).SetTitle("Add manga to the shelf").
+				AddFilter("Manga (.cbz, .pdf, .epub, .cb7)", "*.cbz;*.pdf;*.epub;*.cb7").PromptForMultipleSelection()
+		},
 		pick: func(title string) (string, error) {
 			return application.Get().Dialog.OpenFile().CanChooseDirectories(true).CanChooseFiles(false).CanCreateDirectories(true).SetTitle(title).PromptForSingleSelection()
 		},
@@ -64,7 +69,7 @@ func main() {
 		Assets:      application.AssetOptions{Handler: a.handler()},
 		Mac:         application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
 	})
-	win.Window.NewWithOptions(application.WebviewWindowOptions{
+	w := win.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "Manga Shelf",
 		Width:            1180,
 		Height:           800,
@@ -72,6 +77,10 @@ func main() {
 		MinHeight:        480,
 		BackgroundColour: application.NewRGB(24, 20, 18),
 		URL:              "/",
+		EnableFileDrop:   true, // drop .cbz files or folders of them onto the window
+	})
+	w.OnWindowEvent(events.Common.WindowFilesDropped, func(e *application.WindowEvent) {
+		a.Import(e.Context().DroppedFiles())
 	})
 	err := win.Run()
 	c.ServiceShutdown(core.Background()) // stops a download mid-way: "update" carries on from there

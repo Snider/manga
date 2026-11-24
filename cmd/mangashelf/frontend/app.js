@@ -155,6 +155,53 @@ $("update-all").onclick = async () => {
   } catch (e) { oops(e); }
 };
 
+// --- importing what she already has ------------------------------------------
+let importSeen = 0;
+let importTimer = null;
+
+function watchImports() {
+  if (importTimer) return;
+  toast("Adding to the shelf…");
+  importTimer = setInterval(async () => {
+    let st;
+    try { st = await api("imports"); } catch { return; }
+    if (st.busy || st.n === importSeen) return;
+    clearInterval(importTimer);
+    importTimer = null;
+    importSeen = st.n;
+    const r = st.result;
+    const parts = [];
+    if (r.added.length) parts.push(r.added.length + (r.added.length === 1 ? " book" : " books") + " added to " + r.series.join(", "));
+    if (r.same.length) parts.push(r.same.length + " already on the shelf");
+    if (r.skipped.length) parts.push("not manga: " + r.skipped.join(", "));
+    if (r.failed.length) parts.push("couldn't copy: " + r.failed.join("; "));
+    toast(parts.join(" · ") || "Nothing to add.", r.failed.length > 0 && !r.added.length);
+    show("shelf");
+  }, 700);
+}
+
+api("imports").then((st) => (importSeen = st.n)).catch(() => {});
+// Drops are caught by the window itself, which may not pass the event on, so
+// also look now and then: a cheap call inside the app, no network.
+setInterval(async () => {
+  if (importTimer) return;
+  try {
+    const st = await api("imports");
+    if (st.busy || st.n !== importSeen) watchImports();
+  } catch {}
+}, 2000);
+document.addEventListener("dragover", (e) => e.preventDefault()); // a stray drop never navigates away
+document.addEventListener("drop", (e) => {
+  e.preventDefault();
+  if (e.dataTransfer && e.dataTransfer.files.length) watchImports(); // the window hands Go the paths
+});
+$("add-files").onclick = async () => {
+  try {
+    const r = await api("import", {});
+    if (r.started) watchImports();
+  } catch (e) { oops(e); }
+};
+
 // --- one series ------------------------------------------------------------
 let current = null;
 

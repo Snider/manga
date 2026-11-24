@@ -18,13 +18,15 @@ import (
 // app is what the page talks to: the shelf, MangaDex, the download queue,
 // and the window's own bits (folder picker, open-in-Explorer).
 type app struct {
-	shelf  *shelf.Shelf
-	dex    *mangadex.Client
-	down   *downloader.Service
-	pick   func(title string) (string, error) // choose a folder (the window's dialog)
-	open   func(path string) error            // open a folder/file with the OS
-	browse func(url string) error             // open a web page in her browser
-	assets http.Handler                       // the page itself
+	shelf     *shelf.Shelf
+	dex       *mangadex.Client
+	down      *downloader.Service
+	pick      func(title string) (string, error) // choose a folder (the window's dialog)
+	pickBooks func() ([]string, error)           // choose book files to import
+	imports   importer
+	open      func(path string) error // open a folder/file with the OS
+	browse    func(url string) error  // open a web page in her browser
+	assets    http.Handler            // the page itself
 }
 
 func (a *app) lib() library.Library { return library.Library{Dir: a.shelf.Settings().Library} }
@@ -250,6 +252,21 @@ func (a *app) handler() http.Handler {
 		}
 		send(w, a.shelf.Settings())
 	})
+	mux.HandleFunc("POST /api/import", func(w http.ResponseWriter, r *http.Request) {
+		if a.pickBooks == nil {
+			fail(w, "no file picker here", http.StatusNotImplemented)
+			return
+		}
+		paths, err := a.pickBooks()
+		if err != nil {
+			fail(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		send(w, map[string]bool{"started": a.Import(paths)}) // false: she cancelled, or one's running
+	})
+	mux.HandleFunc("GET /api/imports", func(w http.ResponseWriter, r *http.Request) {
+		send(w, a.imports.state())
+	})
 	mux.HandleFunc("POST /api/pick-folder", func(w http.ResponseWriter, r *http.Request) {
 		if a.pick == nil {
 			fail(w, "no folder picker here", http.StatusNotImplemented)
@@ -265,6 +282,9 @@ func (a *app) handler() http.Handler {
 	mux.Handle("/", a.assets)
 	return mux
 }
+
+// Import copies dropped or picked files onto the shelf, in the background.
+func (a *app) Import(paths []string) bool { return a.imports.start(a.lib(), paths) }
 
 func send(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
