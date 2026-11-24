@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog">
+  <id>root</id>
+  <title>Komga OPDS catalog</title>
+  <updated>2026-11-20T10:00:00Z</updated>
+  <link rel="self" href="/opds/v1.2/catalog" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
+  <link rel="search" href="/opds/v1.2/search?search={searchTerms}" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+  <entry>
+    <title>Libraries</title>
+    <id>libraries</id>
+    <updated>2026-11-20T10:00:00Z</updated>
+    <link rel="subsection" href="/opds/v1.2/libraries" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
+  </entry>
+</feed>

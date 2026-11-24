@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog">
+  <id>search</id>
+  <title>Search results</title>
+  <updated>2026-11-20T10:00:00Z</updated>
+  <entry>
+    <title>Frieren: Beyond Journey's End</title>
+    <id>series-0A1B</id>
+    <updated>2026-11-20T10:00:00Z</updated>
+    <summary>An elf mage outlives her party.</summary>
+    <author><name>Kanehito Yamada</name></author>
+    <link rel="http://opds-spec.org/image/thumbnail" href="/opds/v1.2/series/0A1B/thumbnail" type="image/jpeg"/>
+    <link rel="subsection" href="/opds/v1.2/series/0A1B" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+  </entry>
+</feed>

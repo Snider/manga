@@ -4,6 +4,8 @@ package library
 
 import (
 	"archive/zip"
+	"errors"
+	core "github.com/dappcore/go"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -184,6 +186,34 @@ func TestImportPerBookTrouble(t *testing.T) {
 		defer os.Chmod(locked, 0o644)
 		if got := lib.Import([]string{locked}); len(got.Failed) != 1 {
 			t.Errorf("an unreadable book: %+v", got)
+		}
+	}
+}
+
+// Save writes a downloaded book in place only when it's whole, and never
+// over one that's there.
+func TestSave(t *testing.T) {
+	lib := Library{Dir: filepath.Join(t.TempDir(), "Manga")}
+	write := func(s string) func(core.Writer) error {
+		return func(w core.Writer) error { core.WriteString(w, s); return nil }
+	}
+	name, err := lib.Save("Frieren", "Frieren v01.cbz", write("one"))
+	if err != nil || name != "Frieren v01.cbz" {
+		t.Fatalf("save: %q %v", name, err)
+	}
+	if name, _ := lib.Save("Frieren", "Frieren v01.cbz", write("another")); name != "Frieren v01 (2).cbz" {
+		t.Errorf("a taken name: %q", name)
+	}
+	if _, err := lib.Save("Frieren", "Frieren v02.cbz", func(core.Writer) error { return errors.New("cut off") }); err == nil {
+		t.Error("a failed download was saved")
+	}
+	leftovers, _ := filepath.Glob(filepath.Join(lib.Dir, "Frieren", ".saving-*"))
+	if s, _ := lib.Series("Frieren"); len(s.Books) != 2 || len(leftovers) != 0 {
+		t.Errorf("books %+v, leftovers %v", s.Books, leftovers)
+	}
+	for _, bad := range [][2]string{{"..", "x.cbz"}, {"Frieren", "../x.cbz"}, {"Frieren", ".hidden.cbz"}} {
+		if _, err := lib.Save(bad[0], bad[1], write("x")); err == nil {
+			t.Errorf("saved %v", bad)
 		}
 	}
 }

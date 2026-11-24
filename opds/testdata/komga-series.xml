@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog">
+  <id>series-0A1B</id>
+  <title>Frieren: Beyond Journey's End</title>
+  <updated>2026-11-20T10:00:00Z</updated>
+  <link rel="next" href="/opds/v1.2/series/0A1B?page=1" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+  <entry>
+    <title>Vol. 1</title>
+    <id>book-01</id>
+    <updated>2026-11-20T10:00:00Z</updated>
+    <link rel="http://opds-spec.org/image/thumbnail" href="/opds/v1.2/books/01/thumbnail" type="image/jpeg"/>
+    <link rel="http://opds-spec.org/acquisition" href="/opds/v1.2/books/01/file/Frieren%20v01.cbz" type="application/zip" length="1024"/>
+  </entry>
+</feed>

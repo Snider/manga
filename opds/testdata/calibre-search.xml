@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <id>calibre:search</id>
+  <title>Search</title>
+  <updated>2026-11-20T10:00:00Z</updated>
+  <entry>
+    <title>Yotsuba&amp;! Vol. 1</title>
+    <id>urn:uuid:42</id>
+    <updated>2026-11-20T10:00:00Z</updated>
+    <author><name>Kiyohiko Azuma</name></author>
+    <content type="text">Yotsuba moves to a new town.</content>
+    <link rel="http://opds-spec.org/image/thumbnail" href="/get/thumb/42"/>
+    <link rel="http://opds-spec.org/acquisition" href="/get/epub/42" type="application/epub+zip"/>
+    <link rel="http://opds-spec.org/acquisition" href="/get/mobi/42" type="application/x-mobipocket-ebook"/>
+  </entry>
+</feed>

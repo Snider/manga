@@ -19,13 +19,16 @@ import (
 
 	"manga/library"
 	"manga/mangadex"
+	"manga/opds"
 	"manga/shelf"
 )
 
-// Options: where Pinku keeps its things, and its settings (read fresh for each job).
+// Options: where Pinku keeps its things, its settings (read fresh for each
+// job), and her OPDS catalogues by id (nil: none).
 type Options struct {
-	DataDir  string
-	Settings func() shelf.Settings
+	DataDir   string
+	Settings  func() shelf.Settings
+	Catalogue func(id string) (opds.Catalogue, bool)
 }
 
 // Job is one series being downloaded.
@@ -44,6 +47,12 @@ type Job struct {
 
 	url, format, language string
 	proc                  *process.Process
+
+	// From an OPDS catalogue instead (kind "opds"): which, the series' feed or
+	// the one book picked, and how to stop the download in flight.
+	kind, catalogue, feed string
+	books                 []opds.Book
+	cancel                func()
 }
 
 // ShelfChanged goes out on the bus when a download finishes: the bookcase has new books.
@@ -98,6 +107,9 @@ func (s *Service) OnShutdown(core.Context) core.Result {
 		if j.State == "running" && j.proc != nil {
 			j.proc.Kill()
 		}
+		if j.State == "running" && j.cancel != nil {
+			j.cancel()
+		}
 	}
 	return core.Ok(nil)
 }
@@ -129,13 +141,74 @@ func (s *Service) Add(m mangadex.Manga) (Job, error) {
 	return s.queue(folder, info)
 }
 
-// Update queues a series' download again: mangadex-dl skips what's already there.
+// Update queues a series' download again: mangadex-dl skips what's already
+// there, and a catalogue's series fetches only the books she hasn't got.
 func (s *Service) Update(folder string) (Job, error) {
 	info, err := library.Library{Dir: s.Options().Settings().Library}.Info(folder)
 	if err != nil {
-		return Job{}, core.E("downloader.Update", folder+" wasn't downloaded from MangaDex, so there's nothing to check", nil)
+		return Job{}, core.E("downloader.Update", folder+" wasn't downloaded from a source, so there's nothing to check", nil)
+	}
+	if info.Source == "opds" {
+		if info.Feed == "" {
+			return Job{}, core.E("downloader.Update", folder+" was a single book from a catalogue: there's nothing new to check for", nil)
+		}
+		return s.queueCatalogue(folder, info, nil), nil
 	}
 	return s.queue(folder, info)
+}
+
+// AddFromCatalogue puts a series (or one book) from one of her OPDS
+// catalogues on the shelf and queues its books. If it's already there, it's
+// an Update instead.
+func (s *Service) AddFromCatalogue(catalogue string, e opds.Entry) (Job, error) {
+	if e.Title == "" || (e.Feed == "" && len(e.Books) == 0) {
+		return Job{}, core.E("downloader.AddFromCatalogue", "that isn't a series or a book", nil)
+	}
+	if s.Options().Catalogue == nil {
+		return Job{}, core.E("downloader.AddFromCatalogue", "no catalogues here", nil)
+	}
+	if _, ok := s.Options().Catalogue(catalogue); !ok {
+		return Job{}, core.E("downloader.AddFromCatalogue", "that catalogue isn't in Settings", nil)
+	}
+	lib := library.Library{Dir: s.Options().Settings().Library}
+	base := library.FolderName(e.Title)
+	folder := base
+	for n := 2; ; n++ {
+		if info, err := lib.Info(folder); err == nil && info.Source == "opds" && info.Catalogue == catalogue && info.Feed == e.Feed && e.Feed != "" {
+			return s.Update(folder)
+		}
+		dir, err := lib.Path(folder)
+		if err != nil {
+			return Job{}, err
+		}
+		if !core.Stat(dir).OK {
+			break
+		}
+		folder = base + " (" + core.Itoa(n) + ")"
+	}
+	info := library.Info{Source: "opds", Catalogue: catalogue, Feed: e.Feed, Title: e.Title, Added: core.Now()}
+	if err := lib.WriteInfo(folder, info); err != nil {
+		return Job{}, core.E("downloader.AddFromCatalogue", "couldn't make the folder for "+e.Title, err)
+	}
+	return s.queueCatalogue(folder, info, e.Books), nil
+}
+
+func (s *Service) queueCatalogue(folder string, info library.Info, books []opds.Book) Job {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, j := range s.jobs {
+		if j.Folder == folder && (j.State == "queued" || j.State == "running") {
+			return j.view()
+		}
+	}
+	s.next++
+	j := &Job{ID: s.next, Folder: folder, Title: info.Title, State: "queued", kind: "opds", catalogue: info.Catalogue, feed: info.Feed, books: books}
+	s.jobs = append(s.jobs, j)
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+	return j.view()
 }
 
 func (s *Service) queue(folder string, info library.Info) (Job, error) {
@@ -222,6 +295,9 @@ func (s *Service) Cancel(id int) bool {
 			if j.proc != nil {
 				j.proc.Kill()
 			}
+			if j.cancel != nil {
+				j.cancel()
+			}
 			return true
 		}
 	}
@@ -247,6 +323,10 @@ func Args(url, dir, format, language string) []string {
 }
 
 func (s *Service) run(ctx core.Context, j *Job) {
+	if j.kind == "opds" {
+		s.runCatalogue(ctx, j)
+		return
+	}
 	set := s.Options().Settings()
 	tool := FindTool(set.Tool, s.Options().DataDir)
 	if tool == "" && CanFetch() {
@@ -365,4 +445,88 @@ func (j *Job) view() Job {
 	v := *j
 	v.Log, v.proc = nil, nil
 	return v
+}
+
+// runCatalogue fetches a catalogue series' books that aren't on the shelf
+// yet, one at a time, straight into its folder.
+func (s *Service) runCatalogue(ctx core.Context, j *Job) {
+	var cat opds.Catalogue
+	ok := false
+	if s.Options().Catalogue != nil {
+		cat, ok = s.Options().Catalogue(j.catalogue)
+	}
+	if !ok {
+		s.finish(j, "that catalogue isn't in Settings any more")
+		return
+	}
+	ctx, cancel := core.WithCancel(ctx)
+	defer cancel()
+	s.set(j, func() { j.cancel = cancel; j.Now = "…" })
+	books := j.books
+	if j.feed != "" {
+		listed, err := cat.Books(ctx, j.feed)
+		if err != nil && len(listed) == 0 {
+			s.finish(j, err.Error())
+			return
+		}
+		books = listed
+	}
+	lib := library.Library{Dir: s.Options().Settings().Library}
+	have := map[string]bool{}
+	if series, err := lib.Series(j.Folder); err == nil {
+		for _, b := range series.Books {
+			have[b.File] = true
+		}
+	}
+	for i, b := range books {
+		name := BookFile(b)
+		if have[name] {
+			s.log(j, "already on the shelf: "+name)
+			continue
+		}
+		s.set(j, func() {
+			j.Now = core.Sprintf("%s (%d of %d)", core.TrimSuffix(name, core.PathExt(name)), i+1, len(books))
+		})
+		saved, err := lib.Save(j.Folder, name, func(w core.Writer) error { return cat.Fetch(ctx, b.File, w) })
+		if ctx.Err() != nil {
+			s.finish(j, "") // stopped: finish keeps "cancelled"
+			return
+		}
+		if err != nil {
+			s.log(j, "couldn't fetch "+name+": "+err.Error())
+			s.finish(j, "couldn't fetch "+name+": "+err.Error())
+			return
+		}
+		s.log(j, "saved "+saved)
+		s.set(j, func() { j.Volumes++ })
+		have[name] = true
+	}
+	lib.EnsureCover(j.Folder)
+	s.finish(j, "")
+}
+
+// BookFile is the name a catalogue book is saved under: the file name its
+// link ends in, if it's one Pinku shelves, else its title.
+//
+//	BookFile(opds.Book{Title: "Vol. 1", File: "https://k/books/1/file/Frieren%20v01.cbz", Format: "cbz"}) // "Frieren v01.cbz"
+func BookFile(b opds.Book) string {
+	ext := "." + b.Format
+	if u := core.URLParse(b.File); u.OK {
+		base := core.PathBase(u.Value.(*core.URL).Path)
+		if core.EqualFold(core.PathExt(base), ext) {
+			if name := library.FolderName(core.TrimSuffix(base, core.PathExt(base))); name != "" {
+				return name + ext
+			}
+		}
+	}
+	return library.FolderName(core.Coalesce(b.Title, "Book")) + ext
+}
+
+func (s *Service) log(j *Job, line string) {
+	s.set(j, func() {
+		j.Log = append(j.Log, line)
+		if len(j.Log) > 300 {
+			j.Log = j.Log[len(j.Log)-300:]
+		}
+	})
 }

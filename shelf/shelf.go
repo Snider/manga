@@ -209,3 +209,73 @@ func (s *Shelf) Noted(key string) string {
 	}
 	return v
 }
+
+// Source is an OPDS catalogue she added (Komga, Kavita, Calibre-web, a shop).
+// Password is kept here for Pinku's own use only: the page is never sent it.
+type Source struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	URL      string `json:"url"`
+	User     string `json:"user,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
+// Sources lists her catalogues, in the order she added them.
+func (s *Shelf) Sources() []Source {
+	all, r := s.db.GetAll("sources")
+	if !r.OK {
+		return nil
+	}
+	out := make([]Source, 0, len(all))
+	for _, raw := range all {
+		var src Source
+		if core.JSONUnmarshalString(raw, &src).OK && src.ID != "" {
+			out = append(out, src)
+		}
+	}
+	core.SliceSortFunc(out, func(a, b Source) bool { return a.ID < b.ID })
+	return out
+}
+
+// SourceByID is one of her catalogues.
+func (s *Shelf) SourceByID(id string) (Source, bool) {
+	for _, src := range s.Sources() {
+		if src.ID == id {
+			return src, true
+		}
+	}
+	return Source{}, false
+}
+
+// SaveSource adds a catalogue (ID "") or changes one. A web link is needed;
+// an empty Password on a change keeps the one already saved.
+func (s *Shelf) SaveSource(src Source) core.Result {
+	src.Name, src.URL, src.User = core.Trim(src.Name), core.Trim(src.URL), core.Trim(src.User)
+	u := core.URLParse(src.URL)
+	if !u.OK || (u.Value.(*core.URL).Scheme != "http" && u.Value.(*core.URL).Scheme != "https") || u.Value.(*core.URL).Host == "" {
+		return core.Fail(core.E("shelf.SaveSource", "a catalogue needs a web link (https://…)", nil))
+	}
+	if src.Name == "" {
+		src.Name = u.Value.(*core.URL).Host
+	}
+	if src.ID == "" {
+		src.ID = core.Sprintf("s%d", core.Now().UnixNano())
+	} else if old, ok := s.SourceByID(src.ID); ok && src.Password == "" && src.User == old.User {
+		src.Password = old.Password
+	} else if !ok {
+		return core.Fail(core.E("shelf.SaveSource", "no catalogue "+src.ID, nil))
+	}
+	b := core.JSONMarshal(src)
+	if !b.OK {
+		return b
+	}
+	if r := s.db.Set("sources", src.ID, string(b.Bytes())); !r.OK {
+		return r
+	}
+	return core.Ok(src)
+}
+
+// RemoveSource forgets a catalogue (what's on the shelf from it stays).
+func (s *Shelf) RemoveSource(id string) core.Result {
+	return s.db.Delete("sources", id)
+}

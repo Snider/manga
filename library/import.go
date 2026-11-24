@@ -216,6 +216,62 @@ func (l Library) copyBook(m *local.Medium, folder, src string) (string, string, 
 	return name, "added", nil
 }
 
+// Save writes a book into a series folder through write (a download, say):
+// to a hidden .part file first, renamed into place only when write succeeds,
+// so a book never shows on the shelf half-written. A name that's taken gets
+// "(2)". It answers the file's name.
+//
+//	name, err := lib.Save("Frieren", "Frieren v01.cbz", func(w core.Writer) error { return cat.Fetch(ctx, url, w) })
+func (l Library) Save(folder, name string, write func(core.Writer) error) (string, error) {
+	if !ValidName(folder) || !ValidName(name) || core.HasPrefix(name, ".") {
+		return "", core.E("library.Save", core.Sprintf("bad name %q/%q", folder, name), nil)
+	}
+	if r := core.MkdirAll(l.Dir, 0o755); !r.OK {
+		return "", r.Err()
+	}
+	m, err := l.medium()
+	if err != nil {
+		return "", err
+	}
+	defer m.Close()
+	if err := m.EnsureDir(folder); err != nil {
+		return "", err
+	}
+	ext := core.PathExt(name)
+	final := name
+	for n := 2; m.Exists(folder + "/" + final); n++ {
+		final = core.TrimSuffix(name, ext) + " (" + core.Itoa(n) + ")" + ext
+	}
+	tmp := folder + "/.saving-" + final + ".part"
+	w, err := m.Create(tmp)
+	if err != nil {
+		return "", err
+	}
+	werr := write(w)
+	if cerr := w.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr != nil {
+		m.Delete(tmp)
+		return "", werr
+	}
+	if err := m.Rename(tmp, folder+"/"+final); err != nil {
+		m.Delete(tmp)
+		return "", err
+	}
+	return final, nil
+}
+
+// EnsureCover gives a series without a cover.jpg the first page of its first .cbz.
+func (l Library) EnsureCover(folder string) {
+	m, err := l.open(folder)
+	if err != nil {
+		return
+	}
+	defer m.Close()
+	l.ensureCover(m, folder)
+}
+
 // ensureCover gives a series without a cover.jpg the first page of its first .cbz.
 func (l Library) ensureCover(m *local.Medium, folder string) {
 	s, err := series(m, folder)

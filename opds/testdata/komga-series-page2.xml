@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <id>series-0A1B-2</id>
+  <title>Frieren: Beyond Journey's End</title>
+  <updated>2026-11-20T10:00:00Z</updated>
+  <entry>
+    <title>Vol. 2</title>
+    <id>book-02</id>
+    <updated>2026-11-20T10:00:00Z</updated>
+    <link rel="http://opds-spec.org/acquisition" href="https://cdn.elsewhere.example/Frieren%20v02.cbz" type="application/vnd.comicbook+zip"/>
+  </entry>
+</feed>

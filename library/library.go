@@ -55,14 +55,19 @@ type Book struct {
 // Readable: can the built-in reader open it? (Other formats open in her own app.)
 func (b Book) Readable() bool { return b.Format == "cbz" }
 
-// Info is manga.json, written when a series is added from MangaDex.
+// Info is manga.json, written when a series is added from a source: MangaDex
+// (MangaDex is its id), or an OPDS catalogue (Source "opds", Catalogue the
+// one she added, Feed where its books are listed).
 type Info struct {
-	MangaDex string    `json:"mangadex"`
-	Title    string    `json:"title"`
-	URL      string    `json:"url"`
-	Language string    `json:"language"`
-	Format   string    `json:"format"` // the mangadex-dl --save-as it was downloaded with
-	Added    core.Time `json:"added"`
+	MangaDex  string    `json:"mangadex,omitempty"`
+	Source    string    `json:"source,omitempty"`    // "" (MangaDex) or "opds"
+	Catalogue string    `json:"catalogue,omitempty"` // which of her catalogues
+	Feed      string    `json:"feed,omitempty"`      // the series' feed, to check for new books
+	Title     string    `json:"title"`
+	URL       string    `json:"url"`
+	Language  string    `json:"language"`
+	Format    string    `json:"format"` // the mangadex-dl --save-as it was downloaded with
+	Added     core.Time `json:"added"`
 }
 
 var formats = map[string]bool{".cbz": true, ".pdf": true, ".epub": true, ".cb7": true}

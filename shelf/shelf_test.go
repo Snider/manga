@@ -158,3 +158,37 @@ func TestPinkuHome(t *testing.T) {
 		t.Errorf("Dir %s, DefaultPath %s, DefaultLibrary %s", Dir(), DefaultPath(), DefaultLibrary())
 	}
 }
+
+// Her catalogues: added, listed, changed (a blank password keeps the old
+// one), removed; a link that isn't the web is refused.
+func TestSources(t *testing.T) {
+	s, _ := open(t)
+	r := s.SaveSource(Source{URL: "https://komga.home/opds/v1.2/catalog", User: "her", Password: "pw"})
+	if !r.OK {
+		t.Fatal(r.Error())
+	}
+	added := r.Value.(Source)
+	if added.ID == "" || added.Name != "komga.home" {
+		t.Errorf("added: %+v", added)
+	}
+	added.Name, added.Password = "Home Komga", ""
+	if r := s.SaveSource(added); !r.OK {
+		t.Fatal(r.Error())
+	}
+	got, ok := s.SourceByID(added.ID)
+	if !ok || got.Name != "Home Komga" || got.Password != "pw" {
+		t.Errorf("after rename: %+v", got)
+	}
+	for _, bad := range []Source{{URL: "file:///etc"}, {URL: "not a link"}, {ID: "nope", URL: "https://x.example"}} {
+		if s.SaveSource(bad).OK {
+			t.Errorf("saved %+v", bad)
+		}
+	}
+	if len(s.Sources()) != 1 {
+		t.Errorf("sources: %+v", s.Sources())
+	}
+	s.RemoveSource(added.ID)
+	if _, ok := s.SourceByID(added.ID); ok || len(s.Sources()) != 0 {
+		t.Error("still there after removing")
+	}
+}
