@@ -58,6 +58,19 @@ main { padding: 20px; max-width: 1400px; margin: 0 auto; }
 .book .meter i { display: block; height: 100%; background: var(--accent); }
 .book .badge { position: absolute; top: 6px; right: -6px; background: var(--accent); color: var(--accent-text); font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
 
+/* Continue reading: the books she's part-way through, most recent first. */
+.continue { margin-bottom: 22px; }
+.continue h2 { font-size: 16px; margin: 0 0 10px; color: var(--dim); font-weight: 600; }
+.continue-row { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px; }
+.cont { display: flex; gap: 12px; align-items: center; flex: none; width: 300px; background: var(--panel); border-radius: 10px; padding: 10px; cursor: pointer; text-align: left; }
+.cont:hover { background: #2b231f; }
+.cont img, .cont .nocover { width: 64px; height: 92px; object-fit: cover; border-radius: 3px; flex: none; background: #3b2c22; font-size: 11px; }
+.cont .info { min-width: 0; flex: 1; }
+.cont .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cont .where { font-size: 13px; color: var(--dim); margin: 2px 0 8px; }
+.cont .meter { height: 4px; background: rgba(255,255,255,0.12); border-radius: 2px; overflow: hidden; }
+.cont .meter i { display: block; height: 100%; background: var(--accent); }
+
 /* Search results */
 .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
 .result { display: flex; gap: 12px; background: var(--panel); border-radius: 10px; padding: 12px; }

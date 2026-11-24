@@ -75,7 +75,46 @@ function shown() {
   return list;
 }
 
+// reading: what to carry on with, most recently read first. A book she's
+// part-way through, or (when she finished one) the next one in the series.
+function reading() {
+  const out = [];
+  for (const s of shelf.series) {
+    let last = null;
+    for (const b of s.books) {
+      const p = s.progress[b.file];
+      if (p && (!last || p.at > last.p.at)) last = { b, p };
+    }
+    if (!last) continue;
+    if (last.p.page < last.p.pages - 1) {
+      out.push({ s, b: last.b, at: last.p.at, page: last.p.page, pages: last.p.pages });
+      continue;
+    }
+    const next = s.books[s.books.indexOf(last.b) + 1];
+    if (next && !s.progress[next.file]) out.push({ s, b: next, at: last.p.at, page: 0, pages: 0 });
+  }
+  return out.sort((a, b) => b.at - a.at).slice(0, 10);
+}
+
+function drawContinue() {
+  const items = $("filter").value.trim() ? [] : reading();
+  $("continue").hidden = items.length === 0;
+  $("continue-row").replaceChildren(...items.map(({ s, b, page, pages }) => {
+    const where = pages ? b.name + " · page " + (page + 1) + " of " + pages : "Next: " + b.name;
+    const pct = pages ? Math.round((100 * (page + 1)) / pages) : 0;
+    return el("button", { class: "cont", title: s.title + " · " + where, onclick: () => openBook(s, b) },
+      s.hasCover ? el("img", { src: "/api/cover/" + enc(s.folder), alt: "" }) : el("div", { class: "nocover" }),
+      el("div", { class: "info" },
+        el("div", { class: "t" }, s.title),
+        el("div", { class: "where" }, where),
+        el("div", { class: "meter" }, el("i", { style: "width:" + pct + "%" })),
+      ),
+    );
+  }));
+}
+
 function drawShelf() {
+  drawContinue();
   const list = shown();
   const box = $("shelves");
   box.replaceChildren();
