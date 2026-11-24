@@ -3,7 +3,8 @@ module manga
 go 1.26.5
 
 require (
-	github.com/dappcore/go v0.18.0
+	github.com/dappcore/go v0.18.1
+	github.com/dappcore/go-io/go v0.16.0
 	github.com/dappcore/go-process/go v0.17.1
 	github.com/dappcore/go-store/go v0.15.0
 	github.com/wailsapp/wails/v3 v3.0.0

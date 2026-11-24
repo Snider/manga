@@ -5,16 +5,9 @@ package library
 import (
 	"archive/zip"
 	"encoding/xml"
-	"errors"
-	"fmt"
-	"io"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
+
+	core "github.com/dappcore/go"
+	"github.com/dappcore/go-io/go/local"
 )
 
 // Imported is what one import did, for the page to tell her.
@@ -34,32 +27,44 @@ type Imported struct {
 //	folder Manga/ (of series)    → each sub-folder is a series
 //
 // A book already there (same name, same size) is left alone; a different
-// one with the same name is copied as "name (2).cbz".
+// one with the same name is copied as "name (2).cbz". The dropped files are
+// read from wherever they are; everything written goes through the
+// bookcase's medium, so it lands inside the bookcase or not at all.
 func (l Library) Import(paths []string) Imported {
 	var out Imported
+	if r := core.MkdirAll(l.Dir, 0o755); !r.OK {
+		out.Failed = append(out.Failed, "the bookcase folder: "+r.Error())
+		return out
+	}
+	m, err := l.medium()
+	if err != nil {
+		out.Failed = append(out.Failed, "the bookcase folder: "+err.Error())
+		return out
+	}
+	defer m.Close()
 	touched := map[string]bool{}
 	add := func(series, src string) {
 		folder := FolderName(series)
-		dst, state, err := l.copyBook(folder, src)
+		dst, state, err := l.copyBook(m, folder, src)
 		switch {
 		case err != nil:
-			out.Failed = append(out.Failed, filepath.Base(src)+": "+err.Error())
+			out.Failed = append(out.Failed, core.PathBase(src)+": "+err.Error())
 		case state == "same":
-			out.Same = append(out.Same, folder+"/"+filepath.Base(src))
+			out.Same = append(out.Same, folder+"/"+core.PathBase(src))
 		default:
 			out.Added = append(out.Added, folder+"/"+dst)
 			touched[folder] = true
 		}
 	}
 	for _, p := range paths {
-		st, err := os.Stat(p)
-		if err != nil {
-			out.Failed = append(out.Failed, filepath.Base(p)+": can't read it")
+		st := core.Stat(p)
+		if !st.OK {
+			out.Failed = append(out.Failed, core.PathBase(p)+": can't read it")
 			continue
 		}
-		if !st.IsDir() {
+		if !st.Value.(core.FsFileInfo).IsDir() {
 			if !IsBook(p) {
-				out.Skipped = append(out.Skipped, filepath.Base(p))
+				out.Skipped = append(out.Skipped, core.PathBase(p))
 				continue
 			}
 			add(SeriesOf(p), p)
@@ -67,46 +72,54 @@ func (l Library) Import(paths []string) Imported {
 		}
 		books, subdirs := listDir(p)
 		for _, b := range books { // a series folder
-			add(filepath.Base(p), b)
+			add(core.PathBase(p), b)
 		}
 		for _, d := range subdirs { // a folder of series folders (one level down)
 			inner, _ := listDir(d)
 			for _, b := range inner {
-				add(filepath.Base(d), b)
+				add(core.PathBase(d), b)
 			}
 		}
 		if len(books) == 0 && len(subdirs) == 0 {
-			out.Skipped = append(out.Skipped, filepath.Base(p)+" (no books in it)")
+			out.Skipped = append(out.Skipped, core.PathBase(p)+" (no books in it)")
 		}
 	}
 	for folder := range touched {
 		out.Series = append(out.Series, folder)
-		l.ensureCover(folder)
+		l.ensureCover(m, folder)
 	}
-	sort.Strings(out.Series)
+	core.SliceSort(out.Series)
 	return out
 }
 
 // IsBook: a file the shelf shows (.cbz, .pdf, .epub, .cb7).
-func IsBook(path string) bool { return formats[strings.ToLower(filepath.Ext(path))] }
+func IsBook(path string) bool { return formats[core.Lower(core.PathExt(path))] }
 
-var volumeTail = regexp.MustCompile(`(?i)[\s._-]*[\(\[]?(?:\b(?:v|vol|volume|c|ch|chap|chapter|t|tome|book)\.?|#)\s*\d+.*$`)
+var volumeTail = mustRegex(`(?i)[\s._-]*[\(\[]?(?:\b(?:v|vol|volume|c|ch|chap|chapter|t|tome|book)\.?|#)\s*\d+.*$`)
+
+func mustRegex(pattern string) *core.Regexp {
+	r := core.Regex(pattern)
+	if !r.OK {
+		panic(r.Error()) // a typo in the pattern above: caught by the tests
+	}
+	return r.Value.(*core.Regexp)
+}
 
 // SeriesOf names the series a dropped book belongs to: ComicInfo.xml's
 // <Series> if it's a .cbz that has one, else the file name without its
 // volume or chapter ("Berserk v01" → "Berserk", "One Piece - Vol. 3" → "One Piece").
 func SeriesOf(path string) string {
-	if strings.EqualFold(filepath.Ext(path), ".cbz") {
+	if core.EqualFold(core.PathExt(path), ".cbz") {
 		if s := comicInfoSeries(path); s != "" {
 			return s
 		}
 	}
-	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-	name = strings.ReplaceAll(name, "_", " ")
-	if s := strings.TrimSpace(volumeTail.ReplaceAllString(name, "")); s != "" {
+	name := core.TrimSuffix(core.PathBase(path), core.PathExt(path))
+	name = core.Replace(name, "_", " ")
+	if s := core.Trim(volumeTail.ReplaceAllString(name, "")); s != "" {
 		name = s
 	}
-	return strings.TrimRight(strings.TrimSpace(name), " -.")
+	return core.TrimRight(core.Trim(name), " -.")
 }
 
 func comicInfoSeries(path string) string {
@@ -116,7 +129,7 @@ func comicInfoSeries(path string) string {
 	}
 	defer z.Close()
 	for _, f := range z.File {
-		if !strings.EqualFold(filepath.Base(f.Name), "ComicInfo.xml") || f.UncompressedSize64 > 1<<20 {
+		if !core.EqualFold(core.PathBase(f.Name), "ComicInfo.xml") || f.UncompressedSize64 > 1<<20 {
 			continue
 		}
 		r, err := f.Open()
@@ -127,25 +140,25 @@ func comicInfoSeries(path string) string {
 		var info struct {
 			Series string `xml:"Series"`
 		}
-		if xml.NewDecoder(io.LimitReader(r, 1<<20)).Decode(&info) != nil {
+		if xml.NewDecoder(core.LimitReader(r, 1<<20)).Decode(&info) != nil {
 			return ""
 		}
-		return strings.TrimSpace(info.Series)
+		return core.Trim(info.Series)
 	}
 	return ""
 }
 
 // listDir: the books in a folder, and its sub-folders (not hidden ones).
 func listDir(dir string) (books, subdirs []string) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
+	r := core.ReadDir(core.DirFS(dir), ".")
+	if !r.OK {
 		return nil, nil
 	}
-	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), ".") {
+	for _, e := range r.Value.([]core.FsDirEntry) {
+		if core.HasPrefix(e.Name(), ".") {
 			continue
 		}
-		p := filepath.Join(dir, e.Name())
+		p := core.PathJoin(dir, e.Name())
 		switch {
 		case e.IsDir():
 			subdirs = append(subdirs, p)
@@ -157,63 +170,63 @@ func listDir(dir string) (books, subdirs []string) {
 }
 
 // copyBook copies src into the series folder: "same" if it's already there.
-func (l Library) copyBook(folder, src string) (string, string, error) {
+func (l Library) copyBook(m *local.Medium, folder, src string) (string, string, error) {
 	if !ValidName(folder) {
-		return "", "", fmt.Errorf("can't make a folder called %q", folder)
+		return "", "", core.E("library.Import", core.Sprintf("can't make a folder called %q", folder), nil)
 	}
-	dir := filepath.Join(l.Dir, folder)
-	from, _ := filepath.Abs(filepath.Dir(src))
-	if to, _ := filepath.Abs(dir); from == to {
+	from, to := core.PathAbs(core.PathDir(src)), core.PathAbs(core.PathJoin(l.Dir, folder))
+	if from.OK && to.OK && from.Value.(string) == to.Value.(string) {
 		return "", "same", nil // dropped from the shelf onto the shelf
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := m.EnsureDir(folder); err != nil {
 		return "", "", err
 	}
-	st, err := os.Stat(src)
-	if err != nil {
-		return "", "", err
+	st := core.Stat(src)
+	if !st.OK {
+		return "", "", st.Err()
 	}
-	base := filepath.Base(src)
-	ext := filepath.Ext(base)
+	size := st.Value.(core.FsFileInfo).Size()
+	base := core.PathBase(src)
+	ext := core.PathExt(base)
 	name := base
 	for n := 2; ; n++ {
-		existing, err := os.Stat(filepath.Join(dir, name))
-		if errors.Is(err, fs.ErrNotExist) {
-			break
+		existing, err := m.Stat(folder + "/" + name)
+		if err != nil {
+			break // free
 		}
-		if err == nil && existing.Size() == st.Size() {
+		if existing.Size() == size {
 			return name, "same", nil
 		}
-		name = strings.TrimSuffix(base, ext) + " (" + strconv.Itoa(n) + ")" + ext
+		name = core.TrimSuffix(base, ext) + " (" + core.Itoa(n) + ")" + ext
 	}
-	in, err := os.Open(src)
+	in := core.Open(src)
+	if !in.OK {
+		return "", "", in.Err()
+	}
+	defer core.CloseStream(in.Value)
+	tmp := folder + "/.importing-" + name + ".part" // hidden, and not a book while it copies
+	w, err := m.Create(tmp)
 	if err != nil {
 		return "", "", err
 	}
-	defer in.Close()
-	tmp, err := os.CreateTemp(dir, ".importing-*")
-	if err != nil {
-		return "", "", err
+	copied := core.Copy(w, in.Value.(core.Reader))
+	if cerr := w.Close(); copied.OK && cerr != nil {
+		copied = core.Result{Value: cerr, OK: false}
 	}
-	if _, err := io.Copy(tmp, in); err != nil {
-		tmp.Close()
-		os.Remove(tmp.Name())
-		return "", "", err
+	if !copied.OK {
+		m.Delete(tmp)
+		return "", "", copied.Err()
 	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(tmp.Name())
-		return "", "", err
-	}
-	if err := os.Rename(tmp.Name(), filepath.Join(dir, name)); err != nil {
-		os.Remove(tmp.Name())
+	if err := m.Rename(tmp, folder+"/"+name); err != nil {
+		m.Delete(tmp)
 		return "", "", err
 	}
 	return name, "added", nil
 }
 
 // ensureCover gives a series without a cover.jpg the first page of its first .cbz.
-func (l Library) ensureCover(folder string) {
-	s, err := l.Series(folder)
+func (l Library) ensureCover(m *local.Medium, folder string) {
+	s, err := series(m, folder)
 	if err != nil || s.HasCover {
 		return
 	}
@@ -223,7 +236,7 @@ func (l Library) ensureCover(folder string) {
 		}
 		page, _, err := l.Page(folder, b.File, 0)
 		if err == nil && len(page) > 0 {
-			os.WriteFile(filepath.Join(l.Dir, folder, "cover.jpg"), page, 0o644) // browsers sniff png/webp too
+			m.Write(folder+"/cover.jpg", string(page)) // browsers sniff png/webp too
 		}
 		return
 	}
