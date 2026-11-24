@@ -1,0 +1,126 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: EUPL-1.2 -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manga Shelf</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">📚 Manga Shelf</div>
+    <nav>
+      <button data-tab="shelf" class="on">Bookcase</button>
+      <button data-tab="find">Find manga</button>
+      <button data-tab="jobs">Downloads <span id="busy" class="dot" hidden></span></button>
+      <button data-tab="settings">Settings</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="shelf" class="tab on">
+      <div class="bar">
+        <input id="filter" type="search" placeholder="Look for something on the shelf…">
+        <select id="sort">
+          <option value="added">Newest first</option>
+          <option value="title">A to Z</option>
+          <option value="reading">Reading now</option>
+        </select>
+        <button id="update-all" class="ghost" title="Ask MangaDex for new chapters of everything">Check for new chapters</button>
+        <button id="open-library" class="ghost">Open folder</button>
+      </div>
+      <div id="shelves"></div>
+      <div id="empty" class="empty" hidden>
+        <p>The bookcase is empty.</p>
+        <p><button class="primary" data-go="find">Find some manga</button></p>
+        <p class="dim">Or copy folders of .cbz files into <a href="#" id="empty-folder"></a>: each folder is a series.</p>
+      </div>
+    </section>
+
+    <section id="find" class="tab">
+      <form id="search" class="bar">
+        <input id="q" type="search" placeholder="Title, or paste a MangaDex link" autocomplete="off">
+        <button class="primary">Search</button>
+      </form>
+      <p id="find-note" class="dim note">Searches <b>MangaDex</b>. Pick one and it goes on your shelf, downloaded volume by volume.</p>
+      <div id="results" class="results"></div>
+    </section>
+
+    <section id="jobs" class="tab">
+      <div id="joblist"></div>
+      <p id="nojobs" class="empty dim">Nothing downloading. Things you add from <a href="#" data-go="find">Find manga</a> show up here.</p>
+    </section>
+
+    <section id="settings" class="tab">
+      <form id="settings-form" class="settings">
+        <label>Bookcase folder
+          <span class="row"><input id="s-library" required><button type="button" id="pick" class="ghost">Choose…</button></span>
+          <small>Each series is a folder in here. Put it in OneDrive or on a USB drive if you like.</small>
+        </label>
+        <label>Language
+          <select id="s-language">
+            <option value="en">English</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="es">Spanish</option>
+            <option value="es-la">Spanish (Latin America)</option>
+            <option value="pt-br">Portuguese (Brazil)</option>
+            <option value="it">Italian</option>
+            <option value="pl">Polish</option>
+            <option value="ru">Russian</option>
+            <option value="id">Indonesian</option>
+            <option value="vi">Vietnamese</option>
+            <option value="ja">Japanese (raw)</option>
+          </select>
+        </label>
+        <label>Files
+          <select id="s-format"></select>
+          <small>One file per volume makes a tidy shelf. New series use this; ones already on the shelf keep theirs.</small>
+        </label>
+        <details>
+          <summary>The downloader</summary>
+          <p id="tool-status" class="dim"></p>
+          <label>mangadex-dl, if it's somewhere unusual
+            <input id="s-tool" placeholder="(found by itself)">
+          </label>
+        </details>
+        <p><button class="primary">Save</button> <span id="saved" class="dim"></span></p>
+      </form>
+      <p class="dim credits">Downloads by <a href="https://github.com/mansuf/mangadex-downloader" data-ext>mangadex-dl</a> from <a href="https://mangadex.org" data-ext>MangaDex</a>, where volunteers scanlate. If you love a series, buy the official volumes.</p>
+    </section>
+  </main>
+
+  <dialog id="series" class="sheet">
+    <div class="sheet-head">
+      <img id="d-cover" alt="">
+      <div>
+        <h2 id="d-title"></h2>
+        <p id="d-meta" class="dim"></p>
+        <p class="row">
+          <button id="d-continue" class="primary">Read</button>
+          <button id="d-update" class="ghost">Check for new chapters</button>
+          <button id="d-folder" class="ghost">Open folder</button>
+        </p>
+      </div>
+      <button class="close" data-close>✕</button>
+    </div>
+    <ol id="d-books" class="books"></ol>
+  </dialog>
+
+  <div id="reader" class="reader" hidden>
+    <div class="reader-bar">
+      <button id="r-close">← Shelf</button>
+      <span id="r-title"></span>
+      <span class="spacer"></span>
+      <label class="dim"><input type="checkbox" id="r-rtl" checked> Right to left</label>
+      <span id="r-page" class="dim"></span>
+    </div>
+    <div id="r-stage" class="stage"><img id="r-img" alt=""></div>
+    <input id="r-slider" type="range" min="0" value="0">
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

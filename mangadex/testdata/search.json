@@ -1,0 +1,126 @@
+{
+ "result": "ok",
+ "response": "collection",
+ "data": [
+  {
+   "id": "cbe84ea7-2992-4db0-b4ef-d042124f48c8",
+   "type": "manga",
+   "attributes": {
+    "title": {
+     "ja-ro": "Uso-douri no Kottouya"
+    },
+    "altTitles": [
+     {
+      "ja": "うそ通りの骨董屋"
+     }
+    ],
+    "description": {},
+    "isLocked": false,
+    "links": {
+     "al": "219497",
+     "amz": "https://www.amazon.co.jp/dp/B0HJBXRGXQ"
+    },
+    "officialLinks": null,
+    "originalLanguage": "ja",
+    "lastVolume": "",
+    "lastChapter": "",
+    "publicationDemographic": "seinen",
+    "status": "ongoing",
+    "year": 2026,
+    "contentRating": "safe",
+    "tags": [],
+    "state": "published",
+    "chapterNumbersResetOnNewVolume": false,
+    "createdAt": "2026-11-03T21:58:40+00:00",
+    "updatedAt": "2026-11-10T18:58:56+00:00",
+    "version": 6,
+    "availableTranslatedLanguages": [
+     "en"
+    ],
+    "latestUploadedChapter": "fc735cb6-bb28-4bcd-bece-f713c105ce08"
+   },
+   "relationships": [
+    {
+     "id": "4ec6686c-4ae1-4259-aca2-d966afce5468",
+     "type": "author",
+     "attributes": {
+      "name": "Kotegawa Yua",
+      "imageUrl": null,
+      "biography": {},
+      "twitter": null,
+      "pixiv": null,
+      "melonBook": null,
+      "fanBox": null,
+      "booth": null,
+      "namicomi": null,
+      "nicoVideo": null,
+      "skeb": null,
+      "fantia": null,
+      "tumblr": null,
+      "youtube": null,
+      "weibo": null,
+      "naver": null,
+      "website": null,
+      "createdAt": "2021-04-19T21:59:45+00:00",
+      "updatedAt": "2021-04-19T21:59:45+00:00",
+      "version": 1
+     }
+    },
+    {
+     "id": "89231e3b-c417-472e-bdad-808ce992b009",
+     "type": "author",
+     "attributes": {
+      "name": "Muroyoshi Takashi",
+      "imageUrl": null,
+      "biography": {},
+      "twitter": null,
+      "pixiv": null,
+      "melonBook": null,
+      "fanBox": null,
+      "booth": null,
+      "namicomi": null,
+      "nicoVideo": null,
+      "skeb": null,
+      "fantia": null,
+      "tumblr": null,
+      "youtube": null,
+      "weibo": null,
+      "naver": null,
+      "website": null,
+      "createdAt": "2021-04-19T21:59:45+00:00",
+      "updatedAt": "2021-04-19T21:59:45+00:00",
+      "version": 1
+     }
+    },
+    {
+     "id": "4ec6686c-4ae1-4259-aca2-d966afce5468",
+     "type": "artist"
+    },
+    {
+     "id": "89231e3b-c417-472e-bdad-808ce992b009",
+     "type": "artist"
+    },
+    {
+     "id": "e953cbb7-638f-48d1-a59a-d974a4d658f8",
+     "type": "cover_art",
+     "attributes": {
+      "description": "",
+      "volume": "1",
+      "fileName": "b899141b-3a87-4871-95f6-5fdfd93b68e0.jpg",
+      "locale": "ja",
+      "createdAt": "2026-11-03T21:58:43+00:00",
+      "updatedAt": "2026-11-03T21:58:43+00:00",
+      "version": 1
+     }
+    },
+    {
+     "id": "0e8e6ecb-692d-4db5-9703-360d97a8e4c4",
+     "type": "creator"
+    }
+   ]
+  }
+ ],
+ "limit": 3,
+ "offset": 0,
+ "total": 1
+}
