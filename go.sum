@@ -14,8 +14,8 @@ github.com/coder/websocket v1.8.14 h1:9L0p0iKiNOibykf283eHkKUHHrpG7f65OE3BhhO7v9
 github.com/coder/websocket v1.8.14/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=
 github.com/dappcore/go v0.17.0 h1:yMDW0HqP/hdXB3EI3GvZ8bSr7fyFzZvC8tUCtgwYxtE=
 github.com/dappcore/go v0.17.0/go.mod h1:0wbxM1oMhcDWzFXP8iOuC90oW8/xt4mqJjElZ+cOVWI=
-github.com/dappcore/go-process/go v0.17.0 h1:ZkjVBhdJ9D61OoJMbF7KTIOmFFPFpNz/dmnz9Bt4Suo=
-github.com/dappcore/go-process/go v0.17.0/go.mod h1:1j9is86JtYFHnNdeSP8ArMUJFt0PYSJclTPxn/V1W34=
+github.com/dappcore/go-process/go v0.17.1 h1:NVhRHORFBqL3lBJ94tueDkdRC+fuNXD86XXItjvqkHE=
+github.com/dappcore/go-process/go v0.17.1/go.mod h1:1j9is86JtYFHnNdeSP8ArMUJFt0PYSJclTPxn/V1W34=
 github.com/dappcore/go-store/go v0.15.0 h1:NoWE/Q5dDGUnhgOCaqXf5R92dk2loGiGxUNX1NSkA0s=
 github.com/dappcore/go-store/go v0.15.0/go.mod h1:SLl0iW/u3xvv3tY01nt5E8FVUIeHSEAelgNsQ16q+Nk=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

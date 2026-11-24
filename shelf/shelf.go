@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -37,6 +38,11 @@ var Formats = map[string]string{
 	"cbz-volume": "One file per volume",
 	"cbz":        "One file per chapter",
 }
+
+var language = regexp.MustCompile(`^[a-z]{2,3}(-[a-z]{2,4})?$`)
+
+// ValidLanguage: a MangaDex language code (en, pt-br, es-la, ja-ro).
+func ValidLanguage(code string) bool { return language.MatchString(code) }
 
 // Progress is where she got to in one book.
 type Progress struct {
@@ -117,7 +123,7 @@ func (s *Shelf) Save(v Settings) core.Result {
 	if Formats[v.Format] == "" {
 		return core.Fail(core.E("shelf.Save", "unknown format "+v.Format, nil))
 	}
-	if len(v.Language) < 2 || len(v.Language) > 8 {
+	if !ValidLanguage(v.Language) {
 		return core.Fail(core.E("shelf.Save", "language is a code like en or pt-br", nil))
 	}
 	for k, val := range map[string]string{"library": v.Library, "language": v.Language, "format": v.Format, "tool": v.Tool} {

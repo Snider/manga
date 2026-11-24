@@ -97,7 +97,7 @@ func TestInstallToolRefusesBadZips(t *testing.T) {
 
 func TestArgs(t *testing.T) {
 	got := strings.Join(Args("https://mangadex.org/title/x", "/lib/X", "cbz-volume", "en"), " ")
-	if got != "https://mangadex.org/title/x --path /lib/X --save-as cbz-volume --language en --cover 512px --progress-bar-layout none" {
+	if got != "--path /lib/X --save-as cbz-volume --language en --cover 512px --progress-bar-layout none -- https://mangadex.org/title/x" {
 		t.Errorf("args: %s", got)
 	}
 }
@@ -179,5 +179,28 @@ func TestQueueRunsTheTool(t *testing.T) {
 	}
 	if _, err := d.Update("not downloaded"); err == nil {
 		t.Error("Update of a folder without manga.json should fail")
+	}
+	// A manga.json someone edited can't put options on mangadex-dl's command line.
+	lib2 := library.Library{Dir: lib}
+	lib2.WriteInfo("Edited", library.Info{MangaDex: "--login-password=x", Title: "Edited", URL: "--login"})
+	if _, err := d.Update("Edited"); err == nil {
+		t.Error("a manga.json without a real id should be refused")
+	}
+	lib2.WriteInfo("Edited", library.Info{MangaDex: "cbe84ea7-2992-4db0-b4ef-d042124f48c8", Title: "Edited", URL: "--login", Format: "--proxy=evil", Language: "en --login"})
+	j, err := d.Update("Edited")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Cancel(j.ID)
+	d.mu.Lock()
+	var got *Job
+	for _, x := range d.jobs {
+		if x.ID == j.ID {
+			got = x
+		}
+	}
+	d.mu.Unlock()
+	if got.url != "https://mangadex.org/title/cbe84ea7-2992-4db0-b4ef-d042124f48c8" || got.format != "cbz-volume" || got.language != "en" {
+		t.Errorf("edited manga.json got through: url %q format %q language %q", got.url, got.format, got.language)
 	}
 }

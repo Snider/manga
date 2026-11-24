@@ -133,7 +133,7 @@ func (s *Service) Add(m mangadex.Manga) (Job, error) {
 	if err := lib.WriteInfo(folder, info); err != nil {
 		return Job{}, fmt.Errorf("couldn't make the folder for %s: %w", m.Title, err)
 	}
-	return s.queue(folder, info), nil
+	return s.queue(folder, info)
 }
 
 // Update queues a series' download again: mangadex-dl skips what's already there.
@@ -142,15 +142,29 @@ func (s *Service) Update(folder string) (Job, error) {
 	if err != nil {
 		return Job{}, fmt.Errorf("%s wasn't downloaded from MangaDex, so there's nothing to check", folder)
 	}
-	return s.queue(folder, info), nil
+	return s.queue(folder, info)
 }
 
-func (s *Service) queue(folder string, info library.Info) Job {
+func (s *Service) queue(folder string, info library.Info) (Job, error) {
+	// manga.json sits in her folder where anything could edit it, so nothing
+	// from it reaches mangadex-dl's command line unchecked: the link is
+	// rebuilt from the id, the format and language must be ones we offer.
+	id := mangadex.ID(info.MangaDex)
+	if id == "" || id != info.MangaDex {
+		return Job{}, fmt.Errorf("%s/manga.json doesn't name a MangaDex manga", folder)
+	}
+	if shelf.Formats[info.Format] == "" {
+		info.Format = s.Options().Settings().Format
+	}
+	if !shelf.ValidLanguage(info.Language) {
+		info.Language = s.Options().Settings().Language
+	}
+	info.URL = mangadex.URL(id)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, j := range s.jobs {
 		if j.Folder == folder && (j.State == "queued" || j.State == "running") {
-			return j.view() // already on its way
+			return j.view(), nil // already on its way
 		}
 	}
 	s.next++
@@ -160,7 +174,7 @@ func (s *Service) queue(folder string, info library.Info) Job {
 	case s.wake <- struct{}{}:
 	default:
 	}
-	return j.view()
+	return j.view(), nil
 }
 
 // Jobs is the queue, newest first (finished ones stay until the program closes).
@@ -233,9 +247,10 @@ func (s *Service) take() *Job {
 	return nil
 }
 
-// Args is the mangadex-dl command line for a job.
+// Args is the mangadex-dl command line for a job. The link goes last, after
+// "--", so nothing in it can be read as an option.
 func Args(url, dir, format, language string) []string {
-	return []string{url, "--path", dir, "--save-as", format, "--language", language, "--cover", "512px", "--progress-bar-layout", "none"}
+	return []string{"--path", dir, "--save-as", format, "--language", language, "--cover", "512px", "--progress-bar-layout", "none", "--", url}
 }
 
 func (s *Service) run(ctx core.Context, j *Job) {
