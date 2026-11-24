@@ -23,6 +23,7 @@ type Catalogue struct {
 	Password string
 	HTTP     *core.HTTPClient // nil: one with a timeout
 	Agent    string
+	StayHome bool // refuse redirects off the catalogue's own server (the cover proxy)
 }
 
 // Entry is a search result: a series (Feed is where its books are) or a
@@ -236,9 +237,24 @@ func (c Catalogue) do(ctx core.Context, target string) (*core.Response, error) {
 	if root, ok := parseHTTP(c.URL); ok && c.User != "" && core.EqualFold(u.Host, root.Host) && u.Scheme == root.Scheme {
 		r.SetBasicAuth(c.User, c.Password)
 	}
-	client := c.HTTP
-	if client == nil {
-		client = &core.HTTPClient{Timeout: 60 * core.Second}
+	client := &core.HTTPClient{Timeout: 60 * core.Second}
+	if c.HTTP != nil {
+		copied := *c.HTTP
+		client = &copied
+	}
+	// Redirects: web links only, five at most, and (StayHome) never off her
+	// catalogue's server. Go already drops her login on a hop to another host.
+	client.CheckRedirect = func(next *core.Request, via []*core.Request) error {
+		if len(via) >= 5 {
+			return core.E("opds", "too many redirects", nil)
+		}
+		if next.URL.Scheme != "http" && next.URL.Scheme != "https" {
+			return core.E("opds", "redirected somewhere that isn't the web", nil)
+		}
+		if root, ok := parseHTTP(c.URL); c.StayHome && (!ok || !core.EqualFold(next.URL.Host, root.Host)) {
+			return core.E("opds", "redirected off the catalogue's server", nil)
+		}
+		return nil
 	}
 	resp, err := client.Do(r)
 	if err != nil {

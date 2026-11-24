@@ -78,7 +78,9 @@ func (a *app) sourceRoutes(mux *core.ServeMux) {
 			return
 		}
 		buf := core.NewBuffer()
-		if err := catalogueOf(src).Fetch(r.Context(), target, &limited{w: buf, left: 4 << 20}); err != nil {
+		cat := catalogueOf(src)
+		cat.StayHome = true // a redirect can't take the proxy elsewhere
+		if err := cat.Fetch(r.Context(), target, &limited{w: buf, left: 4 << 20}); err != nil {
 			core.HTTPNotFound(w, r)
 			return
 		}
