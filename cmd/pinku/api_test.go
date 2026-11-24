@@ -70,12 +70,12 @@ func seed(t *testing.T) string {
 	dir := t.TempDir()
 	lib := library.Library{Dir: dir}
 	lib.WriteInfo("Uso", library.Info{MangaDex: "cbe84ea7-2992-4db0-b4ef-d042124f48c8", Title: "Uso-douri no Kottouya", Added: time.Now()})
-	os.WriteFile(filepath.Join(dir, "Uso", "cover.jpg"), []byte("jpg"), 0o644)
+	os.WriteFile(filepath.Join(dir, "Uso", "cover.jpg"), []byte("\xff\xd8\xff\xe0jpg"), 0o644)
 	f, _ := os.Create(filepath.Join(dir, "Uso", "Vol. 1.cbz"))
 	z := zip.NewWriter(f)
 	for _, n := range []string{"01.jpg", "00.jpg", "ComicInfo.xml"} {
 		w, _ := z.Create(n)
-		w.Write([]byte(n))
+		w.Write([]byte("\xff\xd8\xff\xe0" + n))
 	}
 	z.Close()
 	f.Close()
@@ -128,7 +128,7 @@ func TestShelfReadAndRemember(t *testing.T) {
 		t.Errorf("book: %+v", book)
 	}
 	var page string
-	if fetch(t, srv.URL+"/api/page/Uso/Vol.%201.cbz/1", &page) != 200 || page != "01.jpg" {
+	if fetch(t, srv.URL+"/api/page/Uso/Vol.%201.cbz/1", &page) != 200 || page != "\xff\xd8\xff\xe001.jpg" {
 		t.Errorf("page 2 is %q", page)
 	}
 	if post(t, srv.URL+"/api/progress", `{"folder":"Uso","file":"Vol. 1.cbz","page":1,"pages":2}`) != 204 {
@@ -140,7 +140,7 @@ func TestShelfReadAndRemember(t *testing.T) {
 		t.Errorf("after reading to the end: book %+v, read %d", book, sh.Series[0].Read)
 	}
 	var cover string
-	if fetch(t, srv.URL+"/api/cover/Uso", &cover) != 200 || cover != "jpg" {
+	if fetch(t, srv.URL+"/api/cover/Uso", &cover) != 200 || cover != "\xff\xd8\xff\xe0jpg" {
 		t.Errorf("cover %q", cover)
 	}
 	var index string

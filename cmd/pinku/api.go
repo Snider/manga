@@ -62,9 +62,7 @@ func (a *app) handler() core.Handler {
 			core.HTTPNotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Write(b)
+		serveImage(w, r, b, "no-cache")
 	})
 	mux.HandleFunc("GET /api/book/{folder}/{file}", func(w core.ResponseWriter, r *core.Request) {
 		folder, file := r.PathValue("folder"), r.PathValue("file")
@@ -82,9 +80,8 @@ func (a *app) handler() core.Handler {
 			fail(w, err.Error(), core.StatusNotFound)
 			return
 		}
-		w.Header().Set("Content-Type", typ)
-		w.Header().Set("Cache-Control", "max-age=3600")
-		w.Write(b)
+		_ = typ
+		serveImage(w, r, b, "max-age=3600")
 	})
 	mux.HandleFunc("POST /api/progress", func(w core.ResponseWriter, r *core.Request) {
 		var p struct {
@@ -150,9 +147,7 @@ func (a *app) handler() core.Handler {
 			core.HTTPNotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", core.HTTPDetectContentType(b))
-		w.Header().Set("Cache-Control", "max-age=86400")
-		w.Write(b)
+		serveImage(w, r, b, "max-age=86400")
 	})
 	mux.HandleFunc("GET /api/search", func(w core.ResponseWriter, r *core.Request) {
 		q := r.URL.Query().Get("q")
@@ -315,4 +310,21 @@ func read(w core.ResponseWriter, r *core.Request, v any) bool {
 		return false
 	}
 	return true
+}
+
+// serveImage sends bytes Pinku didn't make (a cover from a server, a page out
+// of a .cbz from anywhere) only if they really are an image, and so they can
+// never run as a page on Pinku's own origin: no SVG (it can carry script),
+// nosniff, and a sandbox.
+func serveImage(w core.ResponseWriter, r *core.Request, b []byte, cache string) {
+	ct := core.HTTPDetectContentType(b)
+	if !core.HasPrefix(ct, "image/") || core.Contains(ct, "svg") {
+		core.HTTPNotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", ct)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	w.Header().Set("Cache-Control", cache)
+	w.Write(b)
 }

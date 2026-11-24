@@ -82,10 +82,7 @@ func (a *app) sourceRoutes(mux *core.ServeMux) {
 			core.HTTPNotFound(w, r)
 			return
 		}
-		b := buf.Bytes()
-		w.Header().Set("Content-Type", core.HTTPDetectContentType(b))
-		w.Header().Set("Cache-Control", "max-age=86400")
-		w.Write(b)
+		serveImage(w, r, buf.Bytes(), "max-age=86400")
 	})
 	mux.HandleFunc("POST /api/sources/{id}/add", func(w core.ResponseWriter, r *core.Request) {
 		var e opds.Entry
