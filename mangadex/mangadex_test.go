@@ -53,7 +53,7 @@ func TestSearchFlattensARealAnswer(t *testing.T) {
 	if m.URL != "https://mangadex.org/title/cbe84ea7-2992-4db0-b4ef-d042124f48c8" {
 		t.Errorf("url %q", m.URL)
 	}
-	if ua := req.Header.Get("User-Agent"); !strings.HasPrefix(ua, "MangaShelf/") {
+	if ua := req.Header.Get("User-Agent"); !strings.HasPrefix(ua, "Pinku/") {
 		t.Errorf("user agent %q", ua)
 	}
 	if q := req.URL.Query(); q.Get("title") != "uso-douri" || len(q["contentRating[]"]) != 2 {

@@ -29,7 +29,7 @@ import (
 	"manga/shelf"
 )
 
-// Options: where Manga Shelf keeps its things, and its settings (read fresh for each job).
+// Options: where Pinku keeps its things, and its settings (read fresh for each job).
 type Options struct {
 	DataDir  string
 	Settings func() shelf.Settings

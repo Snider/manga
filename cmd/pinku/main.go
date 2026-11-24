@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// mangashelf is Manga Shelf: a bookcase for manga, a MangaDex search, and
+// pinku is Pinku: a bookcase for manga, a MangaDex search, and
 // mangadex-dl doing the downloading, in one window. No terminal needed.
 //
-//	mangashelf                       # the window
-//	mangashelf search frieren        # the same things, from a terminal
-//	mangashelf get https://mangadex.org/title/<id>
-//	mangashelf shelf
-//	mangashelf update                # look for new chapters of everything
+//	pinku                       # the window
+//	pinku search frieren        # the same things, from a terminal
+//	pinku get https://mangadex.org/title/<id>
+//	pinku shelf
+//	pinku update                # look for new chapters of everything
 //
 // The page talks to the program over the window's own asset server (/api/...),
 // inside the process: no port is opened. The network is only used to talk to
@@ -64,13 +64,13 @@ func main() {
 		},
 	}
 	win := application.New(application.Options{
-		Name:        "Manga Shelf",
+		Name:        "Pinku",
 		Description: "A bookcase for manga, with MangaDex downloads",
 		Assets:      application.AssetOptions{Handler: a.handler()},
 		Mac:         application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
 	})
 	w := win.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "Manga Shelf",
+		Title:            "Pinku",
 		Width:            1180,
 		Height:           800,
 		MinWidth:         640,
@@ -98,7 +98,7 @@ func open() (*shelf.Shelf, *core.Core) {
 	}
 	sh := r.Value.(*shelf.Shelf)
 	c := core.New(
-		core.WithOption("name", "mangashelf"),
+		core.WithOption("name", "pinku"),
 		core.WithService(process.Register),
 		core.WithService(downloader.Register(downloader.Options{DataDir: shelf.Dir(), Settings: sh.Settings})),
 		core.WithServiceLock(),

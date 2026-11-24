@@ -11,5 +11,5 @@ done
 [ -z "$missing" ] || { echo "SPDX header missing: $missing"; exit 1; }
 go vet ./...
 go test ./...
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o /dev/null ./cmd/mangashelf
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o /dev/null ./cmd/pinku
 echo "all good 📚"

@@ -1,6 +1,6 @@
-# Tag v* → test, build MangaShelf.exe on GitHub's Windows runner, bundle the
+# Tag v* → test, build Pinku.exe on GitHub's Windows runner, bundle the
 # pinned mangadex-dl beside it (checksum-checked), attest, publish a release.
-# Verify a download: gh attestation verify MangaShelf.exe -R Snider/manga
+# Verify a download: gh attestation verify Pinku.exe -R Snider/manga
 name: release
 on:
   push:
@@ -26,32 +26,32 @@ jobs:
       - name: build
         shell: bash
         run: |
-          mkdir -p dist/MangaShelf
-          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui" -o dist/MangaShelf/MangaShelf.exe ./cmd/mangashelf
+          mkdir -p dist/Pinku
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui" -o dist/Pinku/Pinku.exe ./cmd/pinku
           curl -fsSL "$MDL_URL" -o mdl.zip
           echo "$MDL_SHA256  mdl.zip" | sha256sum -c -
-          unzip -q mdl.zip -d dist/MangaShelf
-          cp LICENSE dist/MangaShelf/LICENSE.txt
-          cat > dist/MangaShelf/README.txt <<TXT
-          Manga Shelf ${GITHUB_REF_NAME}: https://github.com/${GITHUB_REPOSITORY}
+          unzip -q mdl.zip -d dist/Pinku
+          cp LICENSE dist/Pinku/LICENSE.txt
+          cat > dist/Pinku/README.txt <<TXT
+          Pinku ${GITHUB_REF_NAME}: https://github.com/${GITHUB_REPOSITORY}
 
-          Double-click MangaShelf.exe. Your manga go in Documents\Manga
+          Double-click Pinku.exe. Your manga go in Documents\Manga
           (change it in Settings). Keep the mangadex-dl folder next to
-          MangaShelf.exe: it does the downloading.
+          Pinku.exe: it does the downloading.
 
           mangadex-dl is mansuf/mangadex-downloader v3.1.4 (MIT,
           https://github.com/mansuf/mangadex-downloader), shipped unchanged:
-          its licence is mangadex-dl\LICENSE. Manga Shelf is EUPL-1.2 (LICENSE.txt).
+          its licence is mangadex-dl\LICENSE. Pinku is EUPL-1.2 (LICENSE.txt).
           TXT
-          cd dist && powershell -NoProfile -Command "Compress-Archive -Path MangaShelf -DestinationPath MangaShelf-${GITHUB_REF_NAME}-windows-amd64.zip"
-          cp MangaShelf/MangaShelf.exe .
-          sha256sum MangaShelf.exe MangaShelf-*.zip > SHA256SUMS
+          cd dist && powershell -NoProfile -Command "Compress-Archive -Path Pinku -DestinationPath Pinku-${GITHUB_REF_NAME}-windows-amd64.zip"
+          cp Pinku/Pinku.exe .
+          sha256sum Pinku.exe Pinku-*.zip > SHA256SUMS
           cat SHA256SUMS
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
-            dist/MangaShelf.exe
-            dist/MangaShelf-*.zip
+            dist/Pinku.exe
+            dist/Pinku-*.zip
       - name: release
         shell: bash
         env:
@@ -60,14 +60,14 @@ jobs:
           {
             echo "Built on GitHub's Windows runner from ${GITHUB_SHA}, attested with build provenance."
             echo
-            echo "**Download the .zip**, unzip it anywhere (Documents is fine), double-click MangaShelf.exe."
+            echo "**Download the .zip**, unzip it anywhere (Documents is fine), double-click Pinku.exe."
             echo
-            echo "- Verify: \`gh attestation verify MangaShelf.exe -R ${GITHUB_REPOSITORY}\`"
+            echo "- Verify: \`gh attestation verify Pinku.exe -R ${GITHUB_REPOSITORY}\`"
             echo
             echo '```'
             cat dist/SHA256SUMS
             echo '```'
           } > notes.md
           pre=""; case "$GITHUB_REF_NAME" in v0.*) pre="--prerelease";; esac
-          gh release create "$GITHUB_REF_NAME" $pre --title "Manga Shelf $GITHUB_REF_NAME" --notes-file notes.md \
-            dist/MangaShelf-*.zip dist/MangaShelf.exe dist/SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" $pre --title "Pinku $GITHUB_REF_NAME" --notes-file notes.md \
+            dist/Pinku-*.zip dist/Pinku.exe dist/SHA256SUMS

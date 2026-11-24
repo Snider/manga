@@ -3,6 +3,7 @@
 package shelf
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -10,7 +11,7 @@ import (
 
 func open(t *testing.T) (*Shelf, string) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "MangaShelf", "shelf.db")
+	path := filepath.Join(t.TempDir(), "Pinku", "shelf.db")
 	r := Open(path)
 	if !r.OK {
 		t.Fatal(r.Error())
@@ -86,5 +87,25 @@ func TestChecked(t *testing.T) {
 	s.Checked("Uso", at)
 	if !s.LastChecked("Uso").Equal(at) {
 		t.Errorf("got %v", s.LastChecked("Uso"))
+	}
+}
+
+func TestMovedFrom(t *testing.T) {
+	d := t.TempDir()
+	old, dir := filepath.Join(d, "MangaShelf"), filepath.Join(d, "Pinku")
+	if got := movedFrom(old, dir); got != dir {
+		t.Errorf("nothing there yet: got %q", got)
+	}
+	os.MkdirAll(old, 0o755)
+	os.WriteFile(filepath.Join(old, "shelf.db"), []byte("hers"), 0o644)
+	if got := movedFrom(old, dir); got != dir {
+		t.Fatalf("got %q, want the new folder", got)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "shelf.db")); string(b) != "hers" {
+		t.Errorf("the store didn't come along: %q", b)
+	}
+	os.MkdirAll(old, 0o755) // both exist: the new one wins, the old is left alone
+	if got := movedFrom(old, dir); got != dir {
+		t.Errorf("both: got %q", got)
 	}
 }

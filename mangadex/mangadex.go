@@ -83,7 +83,7 @@ type Client struct {
 
 // New is a Client for the real API.
 func New() *Client {
-	return &Client{BaseURL: "https://api.mangadex.org", UploadsURL: "https://uploads.mangadex.org", HTTP: &http.Client{Timeout: 20 * time.Second}, Agent: "MangaShelf/0.1 (+https://github.com/Snider/manga)"}
+	return &Client{BaseURL: "https://api.mangadex.org", UploadsURL: "https://uploads.mangadex.org", HTTP: &http.Client{Timeout: 20 * time.Second}, Agent: "Pinku/0.4 (+https://github.com/Snider/manga)"}
 }
 
 // Search finds manga by title, best match first. lang ("en") only orders the

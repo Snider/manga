@@ -17,13 +17,13 @@ import (
 	"manga/shelf"
 )
 
-// commands is Manga Shelf without the window, through Core's command tree.
+// commands is Pinku without the window, through Core's command tree.
 func commands(out io.Writer) *core.Core {
-	c := core.New(core.WithOption("name", "mangashelf"), core.WithCli())
-	c.Command("search", core.Command{Description: "search MangaDex: mangashelf search frieren", Action: func(o core.Options) core.Result {
+	c := core.New(core.WithOption("name", "pinku"), core.WithCli())
+	c.Command("search", core.Command{Description: "search MangaDex: pinku search frieren", Action: func(o core.Options) core.Result {
 		return search(out, strings.Join(o.Args(), " "))
 	}})
-	c.Command("get", core.Command{Description: "download a series onto the shelf: mangashelf get <MangaDex link>", Action: func(o core.Options) core.Result {
+	c.Command("get", core.Command{Description: "download a series onto the shelf: pinku get <MangaDex link>", Action: func(o core.Options) core.Result {
 		return get(out, o.String("_arg"))
 	}})
 	c.Command("shelf", core.Command{Description: "what's on the shelf", Action: func(core.Options) core.Result {
@@ -42,11 +42,11 @@ func isCommand(c *core.Core, args []string) bool {
 
 func search(out io.Writer, q string) core.Result {
 	if strings.TrimSpace(q) == "" {
-		return core.Fail(core.E("mangashelf.search", "search for what? mangashelf search frieren", nil))
+		return core.Fail(core.E("pinku.search", "search for what? pinku search frieren", nil))
 	}
 	found, err := mangadex.New().Search(context.Background(), q, "en")
 	if err != nil {
-		return core.Fail(core.E("mangashelf.search", "searching", err))
+		return core.Fail(core.E("pinku.search", "searching", err))
 	}
 	if len(found) == 0 {
 		fmt.Fprintf(out, "nothing on MangaDex called %q\n", q)
@@ -59,11 +59,11 @@ func search(out io.Writer, q string) core.Result {
 
 func get(out io.Writer, link string) core.Result {
 	if mangadex.ID(link) == "" {
-		return core.Fail(core.E("mangashelf.get", "which one? mangashelf get <MangaDex link>", nil))
+		return core.Fail(core.E("pinku.get", "which one? pinku get <MangaDex link>", nil))
 	}
 	m, err := mangadex.New().Get(context.Background(), link)
 	if err != nil {
-		return core.Fail(core.E("mangashelf.get", "asking MangaDex", err))
+		return core.Fail(core.E("pinku.get", "asking MangaDex", err))
 	}
 	return queueAndWait(out, func(d *downloader.Service, _ *shelf.Shelf) ([]downloader.Job, error) {
 		j, err := d.Add(m)
@@ -98,7 +98,7 @@ func queueAndWait(out io.Writer, queue func(*downloader.Service, *shelf.Shelf) (
 	d := core.MustServiceFor[*downloader.Service](c, "downloader")
 	jobs, err := queue(d, sh)
 	if err != nil {
-		return core.Fail(core.E("mangashelf", err.Error(), nil))
+		return core.Fail(core.E("pinku", err.Error(), nil))
 	}
 	if len(jobs) == 0 {
 		fmt.Fprintln(out, "nothing from MangaDex on the shelf to update")
@@ -131,7 +131,7 @@ func queueAndWait(out io.Writer, queue func(*downloader.Service, *shelf.Shelf) (
 		}
 	}
 	if failed > 0 {
-		return core.Fail(core.E("mangashelf", fmt.Sprintf("%d of %d didn't download", failed, len(jobs)), nil))
+		return core.Fail(core.E("pinku", fmt.Sprintf("%d of %d didn't download", failed, len(jobs)), nil))
 	}
 	return core.Ok(len(jobs))
 }
@@ -146,11 +146,11 @@ func showShelf(out io.Writer) core.Result {
 	lib := library.Library{Dir: sh.Settings().Library}
 	series, err := lib.Scan()
 	if err != nil {
-		return core.Fail(core.E("mangashelf.shelf", "reading "+lib.Dir, err))
+		return core.Fail(core.E("pinku.shelf", "reading "+lib.Dir, err))
 	}
 	fmt.Fprintln(out, lib.Dir)
 	if len(series) == 0 {
-		fmt.Fprintln(out, "  (empty: mangashelf search <title>, then mangashelf get <link>)")
+		fmt.Fprintln(out, "  (empty: pinku search <title>, then pinku get <link>)")
 	}
 	for _, s := range series {
 		read := 0

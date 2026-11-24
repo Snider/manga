@@ -140,7 +140,7 @@ func TestShelfReadAndRemember(t *testing.T) {
 		t.Errorf("cover %q", cover)
 	}
 	var index string
-	if fetch(t, srv.URL+"/", &index) != 200 || !strings.Contains(index, "Manga Shelf") {
+	if fetch(t, srv.URL+"/", &index) != 200 || !strings.Contains(index, "Pinku") {
 		t.Error("the page itself isn't served")
 	}
 }
@@ -206,13 +206,13 @@ func TestImportThroughTheAPI(t *testing.T) {
 
 // TestPreview serves the page with a real shelf for a look in a browser:
 //
-//	MANGASHELF_PREVIEW=~/Documents/Manga go test ./cmd/mangashelf -run Preview -timeout 0
+//	PINKU_PREVIEW=~/Documents/Manga go test ./cmd/pinku -run Preview -timeout 0
 //
 // then open http://127.0.0.1:8765. A dev tool: the program itself never opens a port.
 func TestPreview(t *testing.T) {
-	dir := os.Getenv("MANGASHELF_PREVIEW")
+	dir := os.Getenv("PINKU_PREVIEW")
 	if dir == "" {
-		t.Skip("MANGASHELF_PREVIEW not set")
+		t.Skip("PINKU_PREVIEW not set")
 	}
 	a, _ := testApp(t, dir)
 	l, err := net.Listen("tcp", "127.0.0.1:8765")

@@ -1,4 +1,4 @@
-# Manga Shelf
+# Pinku
 
 A Windows manga manager for Snider's friend. She's not a developer, so **nothing may need a terminal**. Wraps mangadex-dl (mansuf/mangadex-downloader, MIT).
 
@@ -12,4 +12,4 @@ Second simple real consumer of CoreGO after GrootDPS (`../groot-dps`, the same s
 - `--path` is the series folder itself (mangadex-dl doesn't add a title folder).
 - The pinned mangadex-dl version and its SHA-256 live in `downloader/tool.go` and `.github/workflows/release.yml`. Bump them together.
 - `./check.sh` before committing. Every source file starts with the SPDX EUPL-1.2 header.
-- Dev preview in a browser: `MANGASHELF_PREVIEW=<library dir> go test ./cmd/mangashelf -run Preview -timeout 0`, then open http://127.0.0.1:8765.
+- Dev preview in a browser: `PINKU_PREVIEW=<library dir> go test ./cmd/pinku -run Preview -timeout 0`, then open http://127.0.0.1:8765.

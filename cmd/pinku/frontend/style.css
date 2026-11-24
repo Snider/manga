@@ -7,8 +7,8 @@
   --wood-dark: #3a2418;
   --text: #f1e9e1;
   --dim: #b3a69a;
-  --accent: #e8a95b;
-  --accent-text: #22160c;
+  --accent: #f29cc6;
+  --accent-text: #2a0f1d;
   --ok: #8fcf8f;
   --bad: #ef8a7a;
   --font: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -30,7 +30,8 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
 [hidden] { display: none !important; }
 
 .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 24px; padding: 10px 20px; background: #120f0d; border-bottom: 1px solid rgba(255,255,255,0.06); }
-.brand { font-weight: 700; font-size: 18px; white-space: nowrap; }
+.brand { font-weight: 700; font-size: 18px; white-space: nowrap; color: var(--accent); }
+.brand small { font-weight: 400; font-size: 13px; color: var(--dim); margin-left: 6px; }
 nav { display: flex; gap: 4px; flex-wrap: wrap; }
 nav button { background: transparent; color: var(--dim); }
 nav button.on { color: var(--text); background: rgba(255,255,255,0.1); }

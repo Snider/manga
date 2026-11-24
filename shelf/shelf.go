@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: EUPL-1.2
 
-// Package shelf is what Manga Shelf remembers between runs, in a go-store
+// Package shelf is what Pinku remembers between runs, in a go-store
 // (SQLite) file in its own folder: the settings, and where she got to in
 // each book.
 //
-//	%AppData%\MangaShelf\shelf.db          (Windows)
-//	~/Library/Application Support/MangaShelf/shelf.db  (macOS)
+//	%AppData%\Pinku\shelf.db          (Windows)
+//	~/Library/Application Support/Pinku/shelf.db  (macOS)
 //
 //	s := shelf.Open(shelf.DefaultPath()).Value.(*shelf.Shelf)
 //	s.Settings().Library             // C:\Users\her\Documents\Manga
@@ -59,13 +59,30 @@ type Shelf struct {
 	db *store.Store
 }
 
-// Dir is Manga Shelf's own folder (the store, and mangadex-dl if it fetched it).
+// Dir is Pinku's own folder (the store, and mangadex-dl if it fetched it).
+// It was called MangaShelf before the app had its name; that folder is moved
+// over the first time, so her settings and where she was reading come along.
 func Dir() string {
 	d, err := os.UserConfigDir()
 	if err != nil {
 		d = os.TempDir()
 	}
-	return filepath.Join(d, "MangaShelf")
+	return movedFrom(filepath.Join(d, "MangaShelf"), filepath.Join(d, "Pinku"))
+}
+
+// movedFrom renames old to dir if only old exists, and answers the folder to
+// use: old again if the rename couldn't happen (better than starting empty).
+func movedFrom(old, dir string) string {
+	if _, err := os.Stat(dir); err == nil {
+		return dir
+	}
+	if _, err := os.Stat(old); err != nil {
+		return dir
+	}
+	if os.Rename(old, dir) != nil {
+		return old
+	}
+	return dir
 }
 
 // DefaultPath is where the store lives.
