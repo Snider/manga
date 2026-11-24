@@ -45,6 +45,7 @@ func TestCheckUpdate(t *testing.T) {
 		t.Fatal(r.Error())
 	}
 	sh := r.Value.(*shelf.Shelf)
+	t.Cleanup(func() { sh.Close() }) // Windows won't delete an open database
 	now := time.Now()
 
 	u := checkUpdate(t.Context(), sh, now)
